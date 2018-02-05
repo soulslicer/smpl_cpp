@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>MPI SMPLify</title>
+  <!--[if lt IE 9]>
+    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js" type="text/javascript"></script>
+  <![endif]-->
+  <!-- Hard links to BootstrapCDN-->
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css">
+  <link href="/assets/application.css" media="all" rel="stylesheet" type="text/css" />
+  <script src="/assets/application.js" type="text/javascript"></script>
+  <meta content="authenticity_token" name="csrf-param" />
+<meta content="hZBD1asLdtt4a+l44t8a69JirZZXz7TuTszPB/LB2Rs=" name="csrf-token" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    <script type="text/javascript">
+
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-29668416-1']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+
+  </script>
+
+  <!-- Piwik -->
+  <script type="text/javascript">
+    var _paq = _paq || [];
+    _paq.push(['trackPageView']);
+    _paq.push(['enableLinkTracking']);
+    (function() {
+      var u=(("https:" == document.location.protocol) ? "https" : "http") + "://piwik.tuebingen.mpg.de/";
+      _paq.push(['setTrackerUrl', u+'piwik.php']);
+      _paq.push(['setSiteId', 24]);
+      var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0]; g.type='text/javascript';
+      g.defer=true; g.async=true; g.src=u+'piwik.js'; s.parentNode.insertBefore(g,s);
+    })();
+  </script>
+  <noscript><p><img src="http://piwik.tuebingen.mpg.de/piwik.php?idsite=24" style="border:0;" alt="" /></p></noscript>
+  <!-- End Piwik Code -->
+
+
+
+</head>
+<body>
+
+<div class="navbar navbar-default navbar-fixed-top">
+      <div class="container">
+        <div class="navbar-header">
+          <a href="../" class="navbar-brand">SMPLify</a>
+          <button class="navbar-toggle" type="button" data-toggle="collapse" data-target="#navbar-main">
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+        </div>
+        <div class="navbar-collapse collapse" id="navbar-main">
+          <ul class="nav navbar-nav">
+	    <li ><a href="/data_license">License</a></li>
+	    	    <li ><a href="/faq">FAQ</a></li>
+	    <!--AJ: HELP is pre_download_path the right way? or will downloads_path() automatically load pre_download if user is not logged in? -->
+	       <li ><a href="/pre_download">Downloads</a></li>
+          </ul>
+	  <ul class="nav navbar-nav navbar-right">
+      	    <li><a href="/signup">Sign Up</a></li>
+      	    <li><a href="/login">Login</a></li>
+          </ul>
+
+        </div>
+      </div>
+    </div>
+
+  <div class="container">
+
+      	    <div class="container_text">
+<div class="page-header" id="banner">
+
+  <div class="row">
+    <div class="col-lg-12">
+      <h1 id="title">SMPLify</h1>
+        <p class="lead">Keep it SMPL: Automatic Estimation of 3D Human Pose and
+        Shape from a Single Image</p>
+             <p>
+          		
+                <a href="/signup" class="btn btn-primary btn-large">Sign up to get started</a>
+            </p>
+    </div>
+  </div>
+</div>
+
+<div class="bs-docs-section clearfix">
+  <div class="row">
+    <div class="col-lg-12">
+      <div class="bs-component">
+        <h2>Abstract</h2>
+        <br>
+             <p>
+               We describe the first method to automatically estimate the 3D pose of the human body as well as its 3D shape from a
+               single unconstrained image.
+               We estimate a full 3D mesh and show that
+               2D joints alone carry a surprising amount of information about body shape.
+               The problem is challenging because of the complexity of the human
+               body, articulation, occlusion, clothing, lighting, and the inherent ambiguity in inferring
+               3D from 2D.
+               <br>
+               To solve this, we first use a recently published CNN-based method, DeepCut, to
+               predict (bottom-up) the 2D body joint locations.
+               We then fit (top-down) a recently published statistical body shape model, called
+               SMPL, to the 2D joints.
+               We do so  by minimizing an objective function that penalizes
+               the error between the projected 3D model joints and detected 2D joints.
+               Because SMPL captures correlations in human shape across
+               the population, we are able to robustly fit it to very little data.
+               We further leverage the 3D model to prevent solutions that cause interpenetration.
+               We evaluate our method, SMPLify, on the Leeds Sports, HumanEva, and Human3.6M datasets,
+               showing superior pose accuracy with respect to the state of the art.
+             </p>        
+       </div>
+    </div>
+  </div>
+</div>
+
+<div class="bs-docs-section clearfix">
+  <div class="row">
+    <div class="col-lg-12">
+      <div class="bs-component">
+
+        <h2>Video</h2>
+        <!-- <p>Coming <i>very</i> soon!</p> -->
+        <div class="embed-responsive embed-responsive-16by9">
+          <iframe class="embed-responsive-item" width="1280" height="720" src="//www.youtube.com/embed/eUnZ2rjxGaE" frameborder="0" allowfullscreen></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="bs-docs-section clearfix">
+  <div class="row">
+    <div class="col-lg-12">
+      <div class="bs-component">
+        <h2>Authors</h2>
+            <br>
+            <ul>
+              <li><a href="http://ps.is.tue.mpg.de/person/fbogo"
+              target="_blank">Federica Bogo*</a></li>
+              <li><a href="http://www.umiacs.umd.edu/~kanazawa/"
+              target="_blank">Angjoo Kanazawa*</a></li>
+              <li><a href="http://ps.is.tue.mpg.de/person/classner"
+              target="_blank">Christoph Lassner</a></li>
+              <li><a href="http://peter.gehler.net"
+              target="_blank">Peter Gehler</a></li>
+              <li><a href="http://ps.is.tue.mpg.de/person/jromero"
+              target="_blank">Javier Romero</a></li>
+              <li><a href="http://ps.is.tue.mpg.de/person/black"
+              target="_blank">Michael Black</a></li>
+            </ul>
+            <p>* - equal contribution</p>
+            <br>
+        <h2>Paper</h2>
+        <br>
+        <ul>
+          <li><a href="http://files.is.tue.mpg.de/black/papers/BogoECCV2016.pdf" target="_blank">PDF preprint</a></li>
+          <li><a href="https://youtu.be/OgX49T2Cqdo" target="_blank">Supplementary Video</a></li>
+        </ul>
+        <br>        
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="bs-docs-section clearfix">
+  <div class="row">
+    <div class="col-lg-12">
+      <div class="bs-component">
+        <h2>News & Updates</h2>
+        <br>
+	<h6>27th March 2017</h6>
+	<p><a href="/downloads">Update</a>: A small bug fix in the
+	visualization code of SMPLify fits.</p>
+       <h6>9th October 2016</h6>
+       <p>The SMPLify website is now live!. </p>
+       <p><a href="/signup">Register</a> to keep getting updates by e-mail.</p>
+       <br/>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="bs-docs-section clearfix">
+  <div class="row">
+    <div class="col-lg-12">
+      <div class="bs-component">
+      <h2>Referencing the Code</h2>
+      <pre class="pre-scrollable">
+        @inproceedings{Bogo:ECCV:2016,
+        title = {Keep it {SMPL}: Automatic Estimation of {3D} Human Pose and Shape
+        from a Single Image},
+        author = {Bogo, Federica and Kanazawa, Angjoo and Lassner, Christoph and
+        Gehler, Peter and Romero, Javier and Black, Michael J.},
+        booktitle = {Computer Vision -- ECCV 2016},
+        series = {Lecture Notes in Computer Science},
+        publisher = {Springer International Publishing},
+        month = oct,
+        year = {2016}
+        }
+      </pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+
+
+    <footer>
+      <div class="row">
+        <div class="col-lg-2">
+          <a href="http://mpg.de" rel="nofollow"><img src="/assets/mpg.png" class="img-responsive"></a>
+        </div>
+        <div class="col-lg-10">
+          <ul class="list-unstyled">
+            <li class="pull-right"><a href="#top">Back to top</a></li>
+            <li><b><a href="/">Home</a></b></li>
+            <li><a href="/data_license">Data License</a></li>
+            <li><a href="/imprint">Imprint</a></li>
+            <li><a href="mailto:smplify@tue.mpg.de">Contact <i class="icon-envelope icon-white"></i></a></li>
+          </ul>
+          <p>Hosted and created by <a href="http://ps.is.tue.mpg.de" rel="nofollow">Perceiving Systems</a>, Part of the <a href="is.mpg.de">Max Planck Institute for Intelligent Systems</a>.</p>
+          <p>Based on <a href="http://getbootstrap.com" rel="nofollow">Bootstrap</a>. Icons from <a href="http://fortawesome.github.io/Font-Awesome/" rel="nofollow">Font Awesome</a>. Web fonts from <a href="http://www.google.com/webfonts" rel="nofollow">Google</a>.</p>
+        </div>
+      </div>
+
+			</div>
+		</div>
+	</div>
+ </footer>
+ </div>
+</body>
+  <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
+</html>

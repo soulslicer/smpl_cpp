@@ -201,8 +201,7 @@ public:
             for(int i=0; i<24; i++){
                 block.col(i) = transforms[i].row(b);
             }
-            //weightedBlockMatrix1[b] = Eigen::MatrixXf::Zero(4,mV.rows());
-            weightedBlockMatrix1[b] = block*mWeightsT; // Column x VSize
+            weightedBlockMatrix1[b] = block*mWeightsT; // Column x VSize ~2ms
         }
 
         for(int b=0; b<4; b++){
@@ -222,10 +221,11 @@ int main(int argc, char *argv[])
     smpl.loadModelFromJSONFile("/home/ryaadhav/smpl_cpp/model.json");
 
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-    bool x = smpl.updateModel();
+    smpl.updateModel();
     std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
     std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() <<std::endl;
 
+    bool active = true;
     op::WRender3D render;
     render.initializationOnThread();
     std::shared_ptr<op::WObject> wObject1 = std::make_shared<op::WObject>();
@@ -236,21 +236,23 @@ int main(int argc, char *argv[])
     bool sw = true;
     while(1){
 
-        static float currAng = 0.;
-        if(currAng >= 45) sw = false;
-        else if(currAng <= -45) sw = true;
-        if(sw) currAng += 0.5;
-        else currAng -= 0.5;
-        smpl.mPose(1,0) = (M_PI/180. * currAng);
-        smpl.mPose(1,1) = (M_PI/180. * currAng);
-        smpl.mPose(15,2) = (M_PI/180. * currAng);
+        if(active){
+            static float currAng = 0.;
+            if(currAng >= 45) sw = false;
+            else if(currAng <= -45) sw = true;
+            if(sw) currAng += 0.5;
+            else currAng -= 0.5;
+            smpl.mPose(1,0) = (M_PI/180. * currAng);
+            smpl.mPose(1,1) = (M_PI/180. * currAng);
+            smpl.mPose(15,2) = (M_PI/180. * currAng);
 
-        //std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-        smpl.updateModel();
-        wObject1->loadEigenData(smpl.mVTemp, smpl.mF);
-        wObject1->rebuild();
-        //std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
-        //std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() <<std::endl;
+            begin = std::chrono::steady_clock::now();
+            smpl.updateModel();
+            wObject1->loadEigenData(smpl.mVTemp, smpl.mF);
+            wObject1->rebuild(op::WObject::RENDER_NORMAL);
+            end= std::chrono::steady_clock::now();
+            std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() <<std::endl;
+        }
 
         render.workOnThread();
     }

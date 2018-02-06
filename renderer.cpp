@@ -97,6 +97,14 @@ struct OBJObject
         computedNormals.push_back( OBJNormal() );
     }
 
+    int resize(int count){
+        vertices.resize(count+1);
+        normals.resize(count+1);
+        textures.resize(count+1);
+        computedNormals.resize(count+1);
+        faces.resize(count);
+    }
+
     std::vector<OBJVertex>            vertices;
     std::vector<OBJNormal>            computedNormals;
     std::vector<OBJNormal>            normals;
@@ -142,7 +150,7 @@ static const unsigned int renderWidth  = 640;
 static const unsigned int renderHeight = 480;
 std::vector<std::shared_ptr<WObject>> wObjects;
 
-void WObject::rebuild()
+void WObject::rebuild(int renderType)
 {
     if (listId != 0)
         glDeleteLists( listId, 1 );
@@ -173,7 +181,17 @@ void WObject::rebuild()
             glBindTexture( GL_TEXTURE_2D, material.texture );
         }
 
-        glBegin( GL_POLYGON );
+        if(renderType == RENDER_NORMAL){
+            glBegin( GL_POLYGON );
+        }else if(renderType == RENDER_POINTS){
+            glBegin( GL_POINTS );
+        }else if(renderType == RENDER_WIREFRAME){
+            glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+            glBegin( GL_POLYGON );
+        }else{
+            throw std::runtime_error("No such render type");
+        }
+
         for ( int j=0; j<object.faces.at(i).items.size(); ++j ) // Each vertex
         {
             OBJFaceItem& item = object.faces.at(i).items.at(j);
@@ -192,8 +210,11 @@ void WObject::rebuild()
             glVertex3fv( object.vertices.at(item.vertexIndex).coords );
 
         }
-
         glEnd();
+    }
+
+    if(renderType == RENDER_WIREFRAME){
+        glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
     }
 
     glDisable( GL_NORMALIZE );
@@ -206,10 +227,11 @@ void WObject::render(){
     glCallList( listId );
 }
 
-bool WObject::clearOBJFile(){
+bool WObject::clearOBJFile(bool clearObject){
     if (listId != 0)
         glDeleteLists( listId, 1 );
-    mObject->clear();
+    if(clearObject)
+        mObject->clear();
 
     std::vector<std::string> texKeys;
     for(std::map<std::string,GLuint>::iterator iterator = textures.begin(); iterator != textures.end(); iterator++) {
@@ -221,7 +243,10 @@ bool WObject::clearOBJFile(){
 }
 
 bool WObject::loadEigenData(const Eigen::MatrixXf& v, const Eigen::MatrixXf& f){
-    clearOBJFile();
+    if(v.rows() == mObject->vertices.size()-1)
+        clearOBJFile(false);
+    else
+       clearOBJFile(true);
 
     OBJMaterial& defaultMaterial = mObject->materials[""];
     defaultMaterial.Ka[0] = 1;
@@ -244,29 +269,53 @@ bool WObject::loadEigenData(const Eigen::MatrixXf& v, const Eigen::MatrixXf& f){
     defaultMaterial.texScaleU = 1;
     defaultMaterial.texScaleV = 1;
 
-    // Iterate v
-    for(int i=0; i<v.rows(); i++){
-        OBJVertex vertex;
-        for(int j=0; j<v.cols(); j++){
-            vertex.coords[j] = v(i,j);
+    // Exists
+    if(mObject->vertices.size() > 1){
+        // Iterate v
+        for(int i=0; i<v.rows(); i++){
+            OBJVertex& vertex = mObject->vertices[i];
+            for(int j=0; j<v.cols(); j++){
+                vertex.coords[j] = v(i,j);
+            }
         }
-        mObject->vertices.push_back(vertex);
-        mObject->computedNormals.push_back( OBJNormal() );
-    }
 
-    // Iterate f
-    for(int i=0; i<f.rows(); i++){
-        OBJFace face;
-        face.material = "";
-        for(int j=0; j<f.cols(); j++){
-            OBJFaceItem item;
-            item.vertexIndex  = 0;
-            item.normalIndex  = 0;
-            item.textureIndex = 0;
-            item.vertexIndex = f(i,j)+1; // faces are 0 based
-            face.items.push_back(item);
+        // Iterate f
+        for(int i=0; i<f.rows(); i++){
+            OBJFace& face = mObject->faces[i];;
+            face.material = "";
+            for(int j=0; j<f.cols(); j++){
+                OBJFaceItem& item = face.items[j];
+                item.vertexIndex  = 0;
+                item.normalIndex  = 0;
+                item.textureIndex = 0;
+                item.vertexIndex = f(i,j); // faces are 0 based
+            }
         }
-        mObject->faces.push_back(face);
+    }else{
+        // Iterate v
+        for(int i=0; i<v.rows(); i++){
+            OBJVertex vertex;
+            for(int j=0; j<v.cols(); j++){
+                vertex.coords[j] = v(i,j);
+            }
+            mObject->vertices.push_back(vertex);
+            mObject->computedNormals.push_back( OBJNormal() );
+        }
+
+        // Iterate f
+        for(int i=0; i<f.rows(); i++){
+            OBJFace face;
+            face.material = "";
+            for(int j=0; j<f.cols(); j++){
+                OBJFaceItem item;
+                item.vertexIndex  = 0;
+                item.normalIndex  = 0;
+                item.textureIndex = 0;
+                item.vertexIndex = f(i,j)+1; // faces are 0 based
+                face.items.push_back(item);
+            }
+            mObject->faces.push_back(face);
+        }
     }
 
     // Compute Normals

@@ -13,6 +13,8 @@
 #include <mutex>
 #include <functional>
 #include <eigen3/Eigen/Eigen>
+#include <iostream>
+using namespace std;
 
 namespace op
 {
@@ -27,14 +29,18 @@ namespace op
     class WObject
     {
     public:
+        const static int RENDER_NORMAL = 0;
+        const static int RENDER_POINTS = 1;
+        const static int RENDER_WIREFRAME = 2;
+
         WObject();
         ~WObject();
-        bool clearOBJFile();
+        bool clearOBJFile(bool clearObject = true);
         void print();
         bool loadOBJFile( const std::string& data_path, const std::string& mesh_filename, const std::string& material_filename );
         bool loadEigenData(const Eigen::MatrixXf& v, const Eigen::MatrixXf& f);
         void render();
-        void rebuild();
+        void rebuild(int renderType = WObject::RENDER_NORMAL);
 
     private:
         std::string mDataPath;

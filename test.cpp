@@ -5,6 +5,7 @@ using namespace std;
 // cd code;
 // python smpl_webuser/hello_world/render_smpl.py
 
+#include <eigen3/unsupported/Eigen/CXX11/Tensor>
 #include <renderer.hpp>
 #include <eigen3/Eigen/Eigen>
 #include <jsoncpp/json/json.h>
@@ -17,7 +18,7 @@ using namespace std;
 
 class SMPL{
 public:
-    Eigen::MatrixXf mV, mVTemp;
+    Eigen::MatrixXf mV, mVTemp1, mVTemp2;
     Eigen::MatrixXf mF;
     Eigen::MatrixXf mPose;
     Eigen::MatrixXf mKintreeTable;
@@ -26,13 +27,17 @@ public:
     Eigen::MatrixXf mWeights;
     Eigen::MatrixXf mWeightsT;
     Eigen::MatrixXf vertSymIdxs;
+    Eigen::MatrixXf mBetas;
     typedef Eigen::Matrix<float, 4, 24> BlockMatrix;
     std::vector<Eigen::MatrixXf> weightedBlockMatrix1;
     std::vector<BlockMatrix> blocks;
+    std::vector<Eigen::MatrixXf> mShapeDirs;
 
     SMPL(){
         blocks.resize(4);
         weightedBlockMatrix1.resize(4);
+        mBetas.resize(10,1);
+        mBetas.setZero();
     }
 
     void printEigen(const Eigen::MatrixXf& m, int colCount = 4, int rowCount = 4){
@@ -70,6 +75,33 @@ public:
         cout << "]" << endl;
     }
 
+    bool loadEigenVecFromJSON(const Json::Value& json, std::vector<Eigen::MatrixXf>& t, bool debug = false){
+        int depth = json.size();
+        int rows = json[0].size();
+        int cols = json[0][0].size();
+        if(debug){
+            cout << "D: " << depth;
+            cout << " R: " << rows;
+            cout << " C: " << cols << endl;
+        }
+
+        t.resize(depth);
+        for(Eigen::MatrixXf& m : t){
+            m.resize(rows, cols);
+        }
+
+        for(int d=0; d<depth; d++){
+            Eigen::MatrixXf& m = t[d];
+            for(int r=0; r<rows; r++){
+                for(int c=0; c<cols; c++){
+                    t[d](r,c) = json[d][r][c].asFloat();
+                }
+            }
+        }
+
+        return true;
+    }
+
     bool loadEigenFromJSON(const Json::Value& json, Eigen::MatrixXf& m, bool debug = false){
         // Set Shape
         int rows = json.size();
@@ -103,11 +135,9 @@ public:
 
         cout << root["pose_training_info"] << endl;
 
-
-
         loadEigenFromJSON(root["pose"], mPose);
 
-        //mPose = Eigen::Map<Eigen::MatrixXf>(mPose.data(), 24,3); // row-col
+        loadEigenVecFromJSON(root["shapedirs"], mShapeDirs, true);
 
         loadEigenFromJSON(root["f"], mF);
 
@@ -120,7 +150,8 @@ public:
         loadEigenFromJSON(root["v_posed"], mV);
         mV.conservativeResize(mV.rows(),mV.cols()+1);
         mV.col(mV.cols()-1) = Eigen::VectorXf::Ones(mV.rows());
-        mVTemp = mV;
+        mVTemp1 = mV;
+        mVTemp2 = mV;
         for(Eigen::MatrixXf& w : weightedBlockMatrix1) w.resize(4,mV.rows());
 
         loadEigenFromJSON(root["weights"], mWeights);
@@ -171,6 +202,12 @@ public:
         std::vector<Eigen::Matrix4f> globalTransforms(24);
         std::vector<Eigen::Matrix4f> transforms(24);
 
+        // Shape
+        for(int i=0; i<mShapeDirs.size(); i++){
+            mVTemp1.row(i) = mV.row(i) + (mShapeDirs[i] * mBetas).transpose();
+            mVTemp1(i,3) = 1;
+        }
+
         // Body pose
         Eigen::Matrix4f& bodyPose = globalTransforms[0];
         bodyPose = rod(mPose.row(0), mJ.row(0));
@@ -207,7 +244,7 @@ public:
         for(int b=0; b<4; b++){
             Eigen::MatrixXf& block = weightedBlockMatrix1[b];
             for(int i=0; i<mV.rows(); i++){
-                mVTemp(i,b) = mV.row(i) * block.col(i);
+                mVTemp2(i,b) = mVTemp1.row(i) * block.col(i);
             }
         }
 
@@ -219,6 +256,7 @@ int main(int argc, char *argv[])
 {
     SMPL smpl;
     smpl.loadModelFromJSONFile("/home/ryaadhav/smpl_cpp/model.json");
+    smpl.updateModel();
 
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     smpl.updateModel();
@@ -230,7 +268,7 @@ int main(int argc, char *argv[])
     render.initializationOnThread();
     std::shared_ptr<op::WObject> wObject1 = std::make_shared<op::WObject>();
     //wObject1->loadOBJFile("/home/raaj/project/","hello_smpl.obj","");
-    wObject1->loadEigenData(smpl.mVTemp, smpl.mF);
+    wObject1->loadEigenData(smpl.mVTemp2, smpl.mF);
     wObject1->print();
     render.addObject(wObject1);
     bool sw = true;
@@ -238,17 +276,25 @@ int main(int argc, char *argv[])
 
         if(active){
             static float currAng = 0.;
+            static float currB = 0.;
             if(currAng >= 45) sw = false;
             else if(currAng <= -45) sw = true;
-            if(sw) currAng += 0.5;
-            else currAng -= 0.5;
+            if(sw) {
+                currAng += 0.5;
+                currB += 0.1;
+            }
+            else {
+                currAng -= 0.5;
+                currB -= 0.1;
+            }
             smpl.mPose(1,0) = (M_PI/180. * currAng);
             smpl.mPose(1,1) = (M_PI/180. * currAng);
             smpl.mPose(15,2) = (M_PI/180. * currAng);
+            smpl.mBetas(3) = currB;
 
             begin = std::chrono::steady_clock::now();
             smpl.updateModel();
-            wObject1->loadEigenData(smpl.mVTemp, smpl.mF);
+            wObject1->loadEigenData(smpl.mVTemp2, smpl.mF);
             wObject1->rebuild(op::WObject::RENDER_NORMAL);
             end= std::chrono::steady_clock::now();
             std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() <<std::endl;
@@ -258,3 +304,22 @@ int main(int argc, char *argv[])
     }
 }
 
+
+//Eigen::Tensor<float, 3> m(3,10,10);
+////Eigen::Tensor<float, 3>::Index i;
+//std::array<Eigen::Tensor<float, 3>::Index, 3> size = {3,3,3};
+//m.resize(size);
+//m.setZero();
+//m(1,0,0) = 4;
+
+//m(2,0,0) = 4;
+
+//cout << m << endl;
+
+
+////m.base().resize(2,2);
+//// ...
+////tensr.resize(...);
+
+//exit(-1);
+////Eigen::Tensor::Dimensions d = m.Dimensions;

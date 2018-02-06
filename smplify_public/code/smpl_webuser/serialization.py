@@ -125,6 +125,8 @@ def ready_arguments(fname_or_dict):
 def save_model_json(fname_or_dict):
     dd = ready_arguments(fname_or_dict)
     import json
+    from json import encoder
+    encoder.FLOAT_REPR = lambda o: format(o, '.5f')
     customDict = dict()
     for k, v in dd.items():
         #print "KEY: " + k
@@ -148,7 +150,7 @@ def save_model_json(fname_or_dict):
             #print "\t" + str(v.shape)
             # No save
         if k == "betas":
-            pass
+            customDict[k] = (np.array(v)).tolist()
             #print "\t" + str(v.shape)
             #print v
             # No save
@@ -187,6 +189,7 @@ def save_model_json(fname_or_dict):
             #print v
             customDict[k] = (np.array(v)).tolist()
         if k == "posedirs":
+            #customDict[k] = (np.array(v)).tolist()
             pass
             #print "\t" + str(v.shape)
             # print v
@@ -203,6 +206,7 @@ def save_model_json(fname_or_dict):
             #print v
             # No save
         if k == "shapedirs":
+            customDict[k] = (np.array(v)).tolist()
             pass
             #print "\t" + str(v.shape)
             # print v
@@ -210,7 +214,6 @@ def save_model_json(fname_or_dict):
         if k == "bs_type":
             #print v
             customDict[k] = (np.array(v)).tolist()
-    print fname_or_dict
     with open("/home/ryaadhav/smpl_cpp/model.json", 'w') as outfile:
         json.dump(customDict, outfile)
 
@@ -218,7 +221,9 @@ tmp = 0
 def load_model(fname_or_dict, params = None):
     dd = ready_arguments(fname_or_dict)
 
-    #save_model_json(fname_or_dict)
+    save_model_json(fname_or_dict)
+
+    #dd['pose'][5] = 0.78
 
     args = {
         'pose': dd['pose'],
@@ -231,10 +236,10 @@ def load_model(fname_or_dict, params = None):
         'bs_style': dd['bs_style'],
     }
 
-    global tmp
-    tmp+=0.5
-    print tmp
-    dd['betas'][3] = tmp
+    #global tmp
+    #tmp+=0.5
+    #print tmp
+    dd['betas'][3] = 20
 
     args2 = {
         'trans': dd['trans'],

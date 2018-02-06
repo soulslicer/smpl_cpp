@@ -51,17 +51,25 @@ def verts_decorated(trans, pose,
         v_shaped = v + shapedirs.dot(betas)
         #print shapedirs.dot(betas).shape
 
-        xx = np.random.rand(4,4,4)
-        print xx
+        #v_shaped = np.copy(v)
+        #for i in range(0,shapedirs.shape[0]):
+        #    v_shaped[i,:] = v[i,:] + shapedirs[i,:,:].dot(betas)
+
+        #print v_shaped[1,:]
+        #xx = np.random.rand(4,4,4)
+        #print xx
         #print xx[0,:,1]
-        print (np.array(xx)).tolist()
-        print (np.array(xx)).tolist()[1][1][1]
+        #print (np.array(xx)).tolist()
+        #print (np.array(xx)).tolist()[1][1][1]
 
     else:
         v_shaped = v
         
     if posedirs is not None:
+        print pose.shape
+        print posemap(bs_type)(pose).shape
         v_posed = v_shaped + posedirs.dot(posemap(bs_type)(pose))
+        #v_posed = v_shaped
     else:
         v_posed = v_shaped
         

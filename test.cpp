@@ -7,187 +7,252 @@ using namespace std;
 
 #include <renderer.hpp>
 #include <eigen3/Eigen/Eigen>
-
+#include <jsoncpp/json/json.h>
+#include <jsoncpp/json/value.h>
+#include <jsoncpp/json/reader.h>
 #include <opencv2/opencv.hpp>
-#include <opencv/cv.h>
+#include <opencv2/core/eigen.hpp>
+#include <iomanip>
+#include <chrono>
 
-#include <cv.h>
+class SMPL{
+public:
+    Eigen::MatrixXf mV, mVTemp;
+    Eigen::MatrixXf mF;
+    Eigen::MatrixXf mPose;
+    Eigen::MatrixXf mKintreeTable;
+    Eigen::MatrixXf mJ;
+    Eigen::MatrixXf mTrans;
+    Eigen::MatrixXf mWeights;
+    Eigen::MatrixXf mWeightsT;
+    Eigen::MatrixXf vertSymIdxs;
+    typedef Eigen::Matrix<float, 4, 24> BlockMatrix;
+    std::vector<Eigen::MatrixXf> weightedBlockMatrix1;
+    std::vector<BlockMatrix> blocks;
 
+    SMPL(){
+        blocks.resize(4);
+        weightedBlockMatrix1.resize(4);
+    }
 
-inline float getpixel(const cv::Mat& in,
-    std::size_t src_width, std::size_t src_height, unsigned y, unsigned x, int channel, int totalChannels)
-{
-    if (x < src_width && y < src_height)
-        return in.at<float>((y * totalChannels * src_width) + (totalChannels * x) + channel);
-
-    return 0;
-}
-
-inline float a1Eq(float d0, float d2, float d3){
-    return -1.0 / 3 * d0 + d2 - 1.0 / 6 * d3;
-}
-
-inline float a2Eq(float d0, float d2, float d3){
-    return 1.0 / 2 * d0 + 1.0 / 2 * d2;
-}
-
-inline float a3Eq(float d0, float d2, float d3){
-    return -1.0 / 6 * d0 - 1.0 / 2 * d2 + 1.0 / 6 * d3;
-}
-
-void bicubicResize(const cv::Mat& in, cv::Mat& out, cv::Size newSize){
-    if(in.channels() > 1) throw std::runtime_error("Only channel 1 supported");
-    if(out.empty())
-        out = cv::Mat(newSize, CV_32FC1, cv::Scalar(0));
-    int totalChannels = 1;
-    std::size_t src_width = in.size().width; std::size_t src_height = in.size().height;
-    std::size_t dest_width = out.size().width; std::size_t dest_height = out.size().height;
-
-    const float tx = float(src_width) / dest_width;
-    const float ty = float(src_height) / dest_height;
-    const int channels = totalChannels;
-    const std::size_t row_stride = dest_width * channels;
-
-    float C[5] = { 0 };
-
-    for (int i = 0; i < dest_height; ++i)
-    {
-        for (int j = 0; j < dest_width; ++j)
-        {
-            const int x = int(tx * j);
-            const int y = int(ty * i);
-            const float dx = tx * j - (((float)x)+0.3);
-            const float dy = ty * i - (((float)y)+0.3);
-
-
-            for (int k = 0; k < totalChannels; ++k)
-            {
-                for (int jj = 0; jj < 4; ++jj)
-                {
-                    //out.at<uchar>(i * row_stride + j * channels + k) = getpixel(in, src_width, src_height, y, x, k, totalChannels);
-                    const int z = y - 1 + jj;
-                    float a0 = getpixel(in, src_width, src_height, z, x, k, totalChannels);
-                    float d0 = getpixel(in, src_width, src_height, z, x - 1, k, totalChannels) - a0;
-                    float d2 = getpixel(in, src_width, src_height, z, x + 1, k, totalChannels) - a0;
-                    float d3 = getpixel(in, src_width, src_height, z, x + 2, k, totalChannels) - a0;
-                    float a1 = a1Eq(d0, d2, d3);
-                    float a2 = a2Eq(d0, d2, d3);
-                    float a3 = a3Eq(d0, d2, d3);
-                    C[jj] = a0 + a1 * dx + a2 * dx * dx + a3 * dx * dx * dx;
-
-                    d0 = C[0] - C[1];
-                    d2 = C[2] - C[1];
-                    d3 = C[3] - C[1];
-                    a0 = C[1];
-                    a1 = a1Eq(d0, d2, d3);
-                    a2 = a2Eq(d0, d2, d3);
-                    a3 = a3Eq(d0, d2, d3);
-                    out.at<float>(i * row_stride + j * channels + k) = a0 + a1 * dy + a2 * dy * dy + a3 * dy * dy * dy;
-                    //out[i * row_stride + j * channels + k] = a0 + a1 * dy + a2 * dy * dy + a3 * dy * dy * dy;
+    void printEigen(const Eigen::MatrixXf& m, int colCount = 4, int rowCount = 4){
+        std::cout << std::setprecision(3) << std::fixed;
+        cout << "R: " << m.rows() << " C: " << m.cols() << endl;
+        cout << "[";
+        for(int i=0; i<m.rows(); i++){
+            if(i < rowCount){
+                cout << "[";
+                for(int j=0; j<m.cols(); j++){
+                    if(j < colCount)
+                        cout << m(i,j) << "     ";
+                    else if(j == colCount)
+                        cout << " ... ";
+                    else if(j >= m.cols()-colCount)
+                        cout << m(i,j) << "     ";
                 }
+                cout << "]" << endl;
+            }else if(i == rowCount){
+                cout << "..." << endl;
+                cout << "..." << endl;
+            }else if(i >= m.rows()-rowCount){
+                cout << "[";
+                for(int j=0; j<m.cols(); j++){
+                    if(j < colCount)
+                        cout << m(i,j) << "     ";
+                    else if(j == colCount)
+                        cout << " ... ";
+                    else if(j >= m.cols()-colCount)
+                        cout << m(i,j) << "     ";
+                }
+                cout << "]" << endl;
             }
         }
+        cout << "]" << endl;
     }
-}
 
-//cv::Mat bicubicresize(const cv::Mat& in,
-//    std::size_t src_width, std::size_t src_height, std::size_t dest_width, std::size_t dest_height, int totalChannels)
-//{
-//    cv::Mat out(cv::Size(dest_width, dest_height),CV_32FC1,cv::Scalar(0));
-//    //std::vector<unsigned char> out(dest_width * dest_height * totalChannels);
+    bool loadEigenFromJSON(const Json::Value& json, Eigen::MatrixXf& m){
+        // Set Shape
+        int cols = json.size();
+        if(!cols) { cerr << "Matrix Has no Cols" << endl; return false;}
+        int rows = json[0].size();
+        if(rows == 0) rows = 1;
+        m.resize(rows, cols);
 
-//    const float tx = float(src_width) / dest_width;
-//    const float ty = float(src_height) / dest_height;
-//    const int channels = totalChannels;
-//    const std::size_t row_stride = dest_width * channels;
+        // Load Data
+        for(int i=0; i<cols; i++){
+            if(rows > 1){
+                for(int j=0; j<rows; j++){
+                    m(j,i) = json[i][j].asFloat();
+                }
+            }else{
+                m(0,i) = json[i].asFloat();
+            }
+        }
 
-//    float C[5] = { 0 };
+        Eigen::MatrixXf t;
+        t = m.transpose();
+        m = t;
 
-//    for (int i = 0; i < dest_height; ++i)
-//    {
-//        for (int j = 0; j < dest_width; ++j)
-//        {
-//            const int x = int(tx * j);
-//            const int y = int(ty * i);
-//            const float dx = tx * j - x;
-//            const float dy = ty * i - y;
+        return true;
+    }
 
+    bool loadModelFromJSONFile(std::string filePath){
+        ifstream in(filePath);
+        Json::Value root;
+        in >> root;
+        if(!root.size()){
+            cerr << "Failed to load model file" << endl;
+            return false;
+        }
 
-//            for (int k = 0; k < totalChannels; ++k)
-//            {
-//                for (int jj = 0; jj < 4; ++jj)
-//                {
-//                    //out.at<uchar>(i * row_stride + j * channels + k) = getpixel(in, src_width, src_height, y, x, k, totalChannels);
+        cout << root["pose_training_info"] << endl;
 
-//                    const int z = y - 1 + jj;
-//                    float a0 = getpixel(in, src_width, src_height, z, x, k, totalChannels);
-//                    float d0 = getpixel(in, src_width, src_height, z, x - 1, k, totalChannels) - a0;
-//                    float d2 = getpixel(in, src_width, src_height, z, x + 1, k, totalChannels) - a0;
-//                    float d3 = getpixel(in, src_width, src_height, z, x + 2, k, totalChannels) - a0;
-//                    float a1 = -1.0 / 3 * d0 + d2 - 1.0 / 6 * d3;
-//                    float a2 = 1.0 / 2 * d0 + 1.0 / 2 * d2;
-//                    float a3 = -1.0 / 6 * d0 - 1.0 / 2 * d2 + 1.0 / 6 * d3;
-//                    C[jj] = a0 + a1 * dx + a2 * dx * dx + a3 * dx * dx * dx;
+        loadEigenFromJSON(root["pose"], mPose);
+        mPose = Eigen::Map<Eigen::MatrixXf>(mPose.data(), 24,3); // row-col
 
-//                    d0 = C[0] - C[1];
-//                    d2 = C[2] - C[1];
-//                    d3 = C[3] - C[1];
-//                    a0 = C[1];
-//                    a1 = -1.0 / 3 * d0 + d2 -1.0 / 6 * d3;
-//                    a2 = 1.0 / 2 * d0 + 1.0 / 2 * d2;
-//                    a3 = -1.0 / 6 * d0 - 1.0 / 2 * d2 + 1.0 / 6 * d3;
-//                    out.at<float>(i * row_stride + j * channels + k) = a0 + a1 * dy + a2 * dy * dy + a3 * dy * dy * dy;
-//                    //out[i * row_stride + j * channels + k] = a0 + a1 * dy + a2 * dy * dy + a3 * dy * dy * dy;
-//                }
-//            }
-//        }
-//    }
+        loadEigenFromJSON(root["f"], mF);
 
-//    return out;
-//}
+        loadEigenFromJSON(root["kintree_table"], mKintreeTable);
+
+        loadEigenFromJSON(root["J"], mJ);
+
+        loadEigenFromJSON(root["trans"], mTrans);
+
+        loadEigenFromJSON(root["v_posed"], mV);
+        mV.conservativeResize(mV.rows(),mV.cols()+1);
+        mV.col(mV.cols()-1) = Eigen::VectorXf::Ones(mV.rows());
+        mVTemp = mV;
+        for(Eigen::MatrixXf& w : weightedBlockMatrix1) w.resize(4,mV.rows());
+
+        loadEigenFromJSON(root["weights"], mWeights);
+        mWeightsT = mWeights.transpose();
+
+        loadEigenFromJSON(root["vert_sym_idxs"], vertSymIdxs);
+
+        return true;
+    }
+
+    Eigen::Matrix4f rod(const Eigen::Vector3f& v, const Eigen::Vector3f& t){
+        Eigen::Matrix4f m;
+        cv::Mat src(cv::Size(1,3),CV_32FC1,cv::Scalar(0));
+        src.at<float>(0) = v(0);
+        src.at<float>(1) = v(1);
+        src.at<float>(2) = v(2);
+        cv::Mat dst;
+        cv::Rodrigues(src, dst);
+        m(0,0) = dst.at<float>(0,0);
+        m(0,1) = dst.at<float>(0,1);
+        m(0,2) = dst.at<float>(0,2);
+        m(0,3) = t(0);
+        m(1,0) = dst.at<float>(1,0);
+        m(1,1) = dst.at<float>(1,1);
+        m(1,2) = dst.at<float>(1,2);
+        m(1,3) = t(1);
+        m(2,0) = dst.at<float>(2,0);
+        m(2,1) = dst.at<float>(2,1);
+        m(2,2) = dst.at<float>(2,2);
+        m(2,3) = t(2);
+        m(3,0) = 0;
+        m(3,1) = 0;
+        m(3,2) = 0;
+        m(3,3) = 1;
+        return m;
+    }
+
+    bool updateModel(){
+
+        // Create parent link table
+        // {1: 0, 2: 0, 3: 0, 4: 1, 5: 2, 6: 3, 7: 4, 8: 5, 9: 6, 10: 7, 11: 8, 12: 9, 13: 9, 14: 9, 15: 12, 16: 13, 17: 14, 18: 16, 19: 17, 20: 18, 21: 19, 22: 20, 23: 21}
+        std::map<int,int> parent;
+        for(int i=1; i<mKintreeTable.cols(); i++){
+            int key = mKintreeTable(1,i); int val = mKintreeTable(0,i);
+            parent[key] = val;
+        }
+
+        std::vector<Eigen::Matrix4f> globalTransforms(24);
+        std::vector<Eigen::Matrix4f> transforms(24);
+
+        // Body pose
+        Eigen::Matrix4f& bodyPose = globalTransforms[0];
+        bodyPose = rod(mPose.row(0), mJ.row(0));
+
+        // Global Transforms
+        for(int i=1; i<globalTransforms.size(); i++){
+            Eigen::Matrix4f& pose = globalTransforms[i];
+            pose = globalTransforms[parent[i]] * rod(mPose.row(i), mJ.row(i) - mJ.row(parent[i]));
+        }
+
+        // Transforms
+        for(int i=0; i<transforms.size(); i++){
+            Eigen::Matrix4f& pose = transforms[i];
+            Eigen::Vector4f jZero;
+            jZero << mJ(i,0), mJ(i,1), mJ(i,2), 0;
+            Eigen::Vector4f fx = globalTransforms[i] * jZero; // Only apply rot to jVector
+            Eigen::Matrix4f pack = Eigen::Matrix4f::Zero();
+            pack(0,3) = fx(0);
+            pack(1,3) = fx(1);
+            pack(2,3) = fx(2);
+            pose = globalTransforms[i] - pack; // Only minus t component from transform with rotated jVector
+        }
+
+        // Generate transform from weights
+        for(int b=0; b<4; b++){
+            BlockMatrix& block = blocks[b];
+            for(int i=0; i<24; i++){
+                block.col(i) = transforms[i].row(b);
+            }
+            //weightedBlockMatrix1[b] = Eigen::MatrixXf::Zero(4,mV.rows());
+            weightedBlockMatrix1[b] = block*mWeightsT; // Column x VSize
+        }
+
+        for(int b=0; b<4; b++){
+            Eigen::MatrixXf& block = weightedBlockMatrix1[b];
+            for(int i=0; i<mV.rows(); i++){
+                mVTemp(i,b) = mV.row(i) * block.col(i);
+            }
+        }
+
+        return true;
+    }
+};
+
 int main(int argc, char *argv[])
 {
+    SMPL smpl;
+    smpl.loadModelFromJSONFile("/home/ryaadhav/smpl_cpp/model.json");
 
-    cv::Mat img = cv::imread("/home/ryaadhav/image_resize.png",0);
-    img.convertTo(img, CV_32FC1);
-    img*=0.005;
-    cout << img.dims << endl;
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    bool x = smpl.updateModel();
+    std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
+    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() <<std::endl;
 
-    cv::Mat out;
-    bicubicResize(img, out, cv::Size(img.size().width*2,img.size().height*2));
+    op::WRender3D render;
+    render.initializationOnThread();
+    std::shared_ptr<op::WObject> wObject1 = std::make_shared<op::WObject>();
+    //wObject1->loadOBJFile("/home/raaj/project/","hello_smpl.obj","");
+    wObject1->loadEigenData(smpl.mV, smpl.mF);
+    wObject1->print();
+    render.addObject(wObject1);
+    bool sw = true;
+    while(1){
 
-    cv::Mat out2;
-    cv::resize(img, out2, cv::Size(img.size().width*2,img.size().height*2), 0,0,CV_INTER_CUBIC);
+        static float currAng = 0.;
+        if(currAng >= 45) sw = false;
+        else if(currAng <= -45) sw = true;
+        if(sw) currAng += 0.5;
+        else currAng -= 0.5;
+        cout << currAng << endl;
+        smpl.mPose(1,0) = (M_PI/180. * currAng);
+        smpl.mPose(1,1) = (M_PI/180. * currAng);
 
+        //std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+        smpl.updateModel();
+        wObject1->loadEigenData(smpl.mVTemp, smpl.mF);
+        wObject1->rebuild();
+        //std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
+        //std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() <<std::endl;
 
-    double min, max;
-    cv::Point min_loc, max_loc;
-    cv::minMaxLoc(out, &min, &max, &min_loc, &max_loc);
-    cout << "Mine: " << max_loc << endl;
-
-    cv::minMaxLoc(out2, &min, &max, &min_loc, &max_loc);
-    cout << "OpenCV: " << max_loc << endl;
-
-    cv::Mat x;
-    cv::subtract(out, out2, x);
-
-    cv::imshow("Mine",out);
-    cv::imshow("OpenCV",out2);
-    cv::imshow("diff",x);
-    cv::waitKey(0);
-
-    //std::vector<unsigned char> = bicubicresize()
-
-    //cv::Mat out = bicubic(img, img.size().width*1,img.size().height*1);
-
-    //    op::WRender3D render;
-    //    render.initializationOnThread();
-    //    std::shared_ptr<op::WObject> wObject1 = std::make_shared<op::WObject>();
-    //    wObject1->loadOBJFile("/home/ryaadhav/project/","hello_smpl.obj","");
-    //    render.addObject(wObject1);
-    //    while(1){
-    //        //wObject1->rebuild();
-    //        render.workOnThread();
-    //    }
+        render.workOnThread();
+    }
 }
 

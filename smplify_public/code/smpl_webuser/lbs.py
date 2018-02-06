@@ -24,6 +24,11 @@ from posemapper import posemap
 import chumpy
 import numpy as np
 
+np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
+np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
+np.core.arrayprint._line_width = 200
+
+
 def global_rigid_transformation(pose, J, kintree_table, xp):
     results = {}
     pose = pose.reshape((-1,3))
@@ -38,8 +43,8 @@ def global_rigid_transformation(pose, J, kintree_table, xp):
         rodrigues = lambda x : cv2.Rodrigues(x)[0]
 
     with_zeros = lambda x : xp.vstack((x, xp.array([[0.0, 0.0, 0.0, 1.0]])))
-    results[0] = with_zeros(xp.hstack((rodrigues(pose[0,:]), J[0,:].reshape((3,1)))))        
-        
+    results[0] = with_zeros(xp.hstack((rodrigues(pose[0,:]), J[0,:].reshape((3,1)))))
+
     for i in range(1, kintree_table.shape[1]):
         results[i] = results[parent[i]].dot(with_zeros(xp.hstack((
             rodrigues(pose[i,:]),
@@ -56,7 +61,9 @@ def global_rigid_transformation(pose, J, kintree_table, xp):
             results[i].dot(xp.concatenate( ( (J[i,:]), 0 ) )))
             ) for i in range(len(results))]
         results = results2
+
     result = xp.dstack(results)
+
     return result, results_global
 
 
@@ -64,14 +71,53 @@ def verts_core(pose, v, J, weights, kintree_table, want_Jtr=False, xp=chumpy):
     A, A_global = global_rigid_transformation(pose, J, kintree_table, xp)
     T = A.dot(weights.T)
 
+
+    weights = weights.T
+    X = np.zeros(shape=(4,4,weights.shape[1]))
+    for i in xrange(0,4):
+        X[i,:,:] = (A[i,:,:]).dot(weights)
+        print X[i,:,1116]
+        #break;
+
+    #T = np.array(T)
+
+    #print A.shape
+    #print weights.T.shape
+    #print T.shape
+
     rest_shape_h = xp.vstack((v.T, np.ones((1, v.shape[0]))))
-        
-    v =(T[:,0,:] * rest_shape_h[0, :].reshape((1, -1)) + 
-        T[:,1,:] * rest_shape_h[1, :].reshape((1, -1)) + 
-        T[:,2,:] * rest_shape_h[2, :].reshape((1, -1)) + 
+
+
+    #print rest_shape_h
+
+    print "***"
+    print rest_shape_h[:,1116]
+    print (T[:,:,1116])
+    print (T[:,:,1116]).dot(rest_shape_h[:,1116])
+    print "***"
+
+#    v = np.array(v)
+#    for i in xrange(0,weights.shape[1]):
+#        newV = (T[:,:,i]).dot(rest_shape_h[:,i])
+#        v[i,:] = newV[0:3]
+
+    #print ( rest_shape_h[0, :].reshape((1, -1))).shape
+
+    print "BF: "
+    print v[1116,:]
+
+    v =(T[:,0,:] * rest_shape_h[0, :].reshape((1, -1)) +
+        T[:,1,:] * rest_shape_h[1, :].reshape((1, -1)) +
+        T[:,2,:] * rest_shape_h[2, :].reshape((1, -1)) +
         T[:,3,:] * rest_shape_h[3, :].reshape((1, -1))).T
 
     v = v[:,:3] 
+
+#    v = np.array(v)
+#    for i in range(4000,4200):
+#        v[i,0] = v[i,0]+0.1
+    print "AF: "
+    print v[1116,:]
     
     if not want_Jtr:
         return v

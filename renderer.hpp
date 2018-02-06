@@ -12,6 +12,7 @@
 #include <fstream>
 #include <mutex>
 #include <functional>
+#include <eigen3/Eigen/Eigen>
 
 namespace op
 {
@@ -31,6 +32,7 @@ namespace op
         bool clearOBJFile();
         void print();
         bool loadOBJFile( const std::string& data_path, const std::string& mesh_filename, const std::string& material_filename );
+        bool loadEigenData(const Eigen::MatrixXf& v, const Eigen::MatrixXf& f);
         void render();
         void rebuild();
 

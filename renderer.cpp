@@ -220,6 +220,92 @@ bool WObject::clearOBJFile(){
     }
 }
 
+bool WObject::loadEigenData(const Eigen::MatrixXf& v, const Eigen::MatrixXf& f){
+    clearOBJFile();
+
+    OBJMaterial& defaultMaterial = mObject->materials[""];
+    defaultMaterial.Ka[0] = 1;
+    defaultMaterial.Ka[1] = 1;
+    defaultMaterial.Ka[2] = 1;
+    defaultMaterial.Ka[3] = 1;
+
+    defaultMaterial.Kd[0] = 1;
+    defaultMaterial.Kd[1] = 1;
+    defaultMaterial.Kd[2] = 1;
+    defaultMaterial.Kd[3] = 1;
+
+    defaultMaterial.Ks[0] = 1;
+    defaultMaterial.Ks[1] = 1;
+    defaultMaterial.Ks[2] = 1;
+    defaultMaterial.Ks[3] = 1;
+
+    defaultMaterial.texture = 0;
+
+    defaultMaterial.texScaleU = 1;
+    defaultMaterial.texScaleV = 1;
+
+    // Iterate v
+    for(int i=0; i<v.rows(); i++){
+        OBJVertex vertex;
+        for(int j=0; j<v.cols(); j++){
+            vertex.coords[j] = v(i,j);
+        }
+        mObject->vertices.push_back(vertex);
+        mObject->computedNormals.push_back( OBJNormal() );
+    }
+
+    // Iterate f
+    for(int i=0; i<f.rows(); i++){
+        OBJFace face;
+        face.material = "";
+        for(int j=0; j<f.cols(); j++){
+            OBJFaceItem item;
+            item.vertexIndex  = 0;
+            item.normalIndex  = 0;
+            item.textureIndex = 0;
+            item.vertexIndex = f(i,j)+1; // faces are 0 based
+            face.items.push_back(item);
+        }
+        mObject->faces.push_back(face);
+    }
+
+    // Compute Normals
+    for(OBJFace& face : mObject->faces){
+        OBJVertex a = mObject->vertices.at(face.items.at(0).vertexIndex);
+        OBJVertex b = mObject->vertices.at(face.items.at(1).vertexIndex);
+        OBJVertex c = mObject->vertices.at(face.items.at(2).vertexIndex);
+        float x = (b.coords[1]-a.coords[1])*(c.coords[2]-a.coords[2])-(b.coords[2]-a.coords[2])*(c.coords[1]-a.coords[1]);
+        float y = (b.coords[2]-a.coords[2])*(c.coords[0]-a.coords[0])-(b.coords[0]-a.coords[0])*(c.coords[2]-a.coords[2]);
+        float z = (b.coords[0]-a.coords[0])*(c.coords[1]-a.coords[1])-(b.coords[1]-a.coords[1])*(c.coords[0]-a.coords[0]);
+
+        float length = std::sqrt( x*x + y*y + z*z );
+
+        x /= length;
+        y /= length;
+        z /= length;
+
+        for (int i=0; i<face.items.size(); ++i)
+        {
+            if ( mObject->computedNormals.at(face.items.at(i).vertexIndex).coords[0]==0 &&
+                 mObject->computedNormals.at(face.items.at(i).vertexIndex).coords[1]==0 &&
+                 mObject->computedNormals.at(face.items.at(i).vertexIndex).coords[2]==0  )
+            {
+                mObject->computedNormals.at(face.items.at(i).vertexIndex).coords[0] =  x;
+                mObject->computedNormals.at(face.items.at(i).vertexIndex).coords[1] =  y;
+                mObject->computedNormals.at(face.items.at(i).vertexIndex).coords[2] =  z;
+            }
+            else
+            {
+                mObject->computedNormals.at(face.items.at(i).vertexIndex).coords[0] =  mObject->computedNormals.at(face.items.at(i).vertexIndex).coords[0]+x;
+                mObject->computedNormals.at(face.items.at(i).vertexIndex).coords[1] =  mObject->computedNormals.at(face.items.at(i).vertexIndex).coords[1]+y;
+                mObject->computedNormals.at(face.items.at(i).vertexIndex).coords[2] =  mObject->computedNormals.at(face.items.at(i).vertexIndex).coords[2]+z;
+            }
+        }
+    }
+
+    return true;
+}
+
 bool WObject::loadOBJFile( const std::string& data_path, const std::string& mesh_filename, const std::string& material_filename )
 {
     clearOBJFile();

@@ -105,7 +105,6 @@ def ready_arguments(fname_or_dict):
         J_tmpz = MatVecMult(dd['J_regressor'], v_shaped[:,2])        
         dd['J'] = ch.vstack((J_tmpx, J_tmpy, J_tmpz)).T    
         dd['v_posed'] = v_shaped + dd['posedirs'].dot(posemap(dd['bs_type'])(dd['pose']))
-        print J_tmpz
     else:    
         dd['v_posed'] = dd['v_template'] + dd['posedirs'].dot(posemap(dd['bs_type'])(dd['pose']))
             
@@ -116,11 +115,13 @@ def ready_arguments(fname_or_dict):
 def load_model(fname_or_dict, params = None):
     dd = ready_arguments(fname_or_dict)
 
+    dd['pose'][3] = 0.78;
+
     if params is not None:
 
 
         # left leg
-        dd['pose'][3] = params["left_leg_x"];
+        dd['pose'][3] = np.deg2rad(-45);
         dd['pose'][4] = 0;
         dd['pose'][5] = 0;
 
@@ -135,9 +136,9 @@ def load_model(fname_or_dict, params = None):
     #    dd['pose'][11] = 0;
 
         # left knee
-        dd['pose'][12] = params["left_knee_x"];
-        dd['pose'][13] = 0;
-        dd['pose'][14] = 0;
+#        dd['pose'][12] = params["left_knee_x"];
+#        dd['pose'][13] = 0;
+#        dd['pose'][14] = 0;
 
     
     args = {
@@ -151,48 +152,150 @@ def load_model(fname_or_dict, params = None):
         'bs_style': dd['bs_style']
     }
 
-    print "*********"
-    for key in args.keys():
-        obj = args[key]
-        type = args[key].__class__.__name__;
-        print key + " : " + type + " :"
+    import json
+    customDict = dict()
+    for k, v in dd.items():
+        #print "KEY: " + k
+        #print "TYPE: " + v.__class__.__name__
 
-        if key == "J":
-            (rows, cols) = obj.shape
-            print obj.shape
-        elif key == "weights":
-            (rows, cols) = obj.shape
-            print obj.shape
-        elif key == "v":
-            (rows, cols) = obj.shape
-            print obj.shape
-        elif key == "bs_style":
-            print obj
-        elif key == "kintree_table":
-            (rows, cols) = obj.shape
-            print obj.shape
-        elif key == "pose":
-            print obj
-            print len(obj)
-        elif key == "xp":
-            obj = np
-            print obj
-        elif key == "want_Jtr":
-            print obj
-#        elif key == "xp":
+        if k == "J_regressor_prior":
+            pass
+            #print "\t" + str(v.shape)
+            # No save
+        if k == "pose":
+            #print "\t" + str(v.shape)
+            customDict[k] = (np.array(v)).tolist()
+        if k == "f":
+            #print "\t" + str(v.shape)
+            customDict[k] = (np.array(v)).tolist()
+            #print v
+        if k == "J_regressor":
+            pass
+            #print "\t" + str(v.shape)
+            # No save
+        if k == "betas":
+            pass
+            #print "\t" + str(v.shape)
+            #print v
+            # No save
+        if k == "kintree_table":
+            #print "\t" + str(v.shape)
+            #print v
+            customDict[k] = (np.array(v)).tolist()
+        if k == "J":
+            #print "\t" + str(v.shape)
+            #print v
+            customDict[k] = (np.array(v)).tolist()
+        if k == "v_shaped":
+            pass
+            #print "\t" + str(v.shape)
+            #print v
+            # No save
+        if k == "weights_prior":
+            pass
+            #print "\t" + str(v.shape)
+            #print v
+            # No save
+        if k == "trans":
+            #print "\t" + str(v.shape)
+            #print v
+            customDict[k] = (np.array(v)).tolist()
+        if k == "v_posed":
+            #print "\t" + str(v.shape)
+            #print v
+            customDict[k] = (np.array(v)).tolist()
+        if k == "weights":
+            #print "\t" + str(v.shape)
+            #print v
+            customDict[k] = (np.array(v)).tolist()
+        if k == "vert_sym_idxs":
+            #print "\t" + str(v.shape)
+            #print v
+            customDict[k] = (np.array(v)).tolist()
+        if k == "posedirs":
+            pass
+            #print "\t" + str(v.shape)
+            # print v
+            # No save
+        if k == "pose_training_info":
+            #print v
+            customDict[k] = v
+        if k == "bs_style":
+            #print v
+            customDict[k] = v
+        if k == "v_template":
+            pass
+            #print "\t" + str(v.shape)
+            #print v
+            # No save
+        if k == "shapedirs":
+            pass
+            #print "\t" + str(v.shape)
+            # print v
+            # No save
+        if k == "bs_type":
+            #print v
+            customDict[k] = (np.array(v)).tolist()
+    print fname_or_dict
+    #with open("/home/raaj/project/"+'model.json', 'w') as outfile:
+    #    json.dump(customDict, outfile)
+
+#    print "*********"
+#    import json
+#    customDict = dict()
+#    for key in args.keys():
+#        obj = args[key]
+#        type = args[key].__class__.__name__;
+#        print key + " : " + type + " :"
+
+#        if key == "J":
 #            (rows, cols) = obj.shape
 #            print obj.shape
+#            print obj
+#            customDict["J"] = (np.array(obj)).tolist()
+#        elif key == "weights":
+#            (rows, cols) = obj.shape
+#            print obj.shape
+#            #customDict["weights"] = (np.array(obj)).tolist()
+#        elif key == "v":
+#            (rows, cols) = obj.shape
+#            print obj.shape
+#            #customDict["v"] = (np.array(obj)).tolist()
 #        elif key == "bs_style":
+#            print obj
+#        elif key == "kintree_table":
 #            (rows, cols) = obj.shape
 #            print obj.shape
-#        if dataType == "<class 'scipy.sparse.csc.csc_matrix'>":
-#            print "XXXXXXXXXX"
-#            print dd[key]
-#        else:
-#            print "BO"
+#            print obj
+#        elif key == "pose":
+#            print obj
+#            print len(obj)
+#        elif key == "xp":
+#            obj = np
+#            print obj
+#        elif key == "want_Jtr":
+#            print obj
+##        elif key == "xp":
+##            (rows, cols) = obj.shape
+##            print obj.shape
+##        elif key == "bs_style":
+##            (rows, cols) = obj.shape
+##            print obj.shape
+##        if dataType == "<class 'scipy.sparse.csc.csc_matrix'>":
+##            print "XXXXXXXXXX"
+##            print dd[key]
+##        else:
+##            print "BO"
+#    with open('data.txt', 'w') as outfile:
+#        json.dump(customDict, outfile)
 
-    print "*********"
-    # SHOULD YOU USE THE FINAL OUTPUT INSTEAD
+#    print "*********"
+#    # SHOULD YOU USE THE FINAL OUTPUT INSTEAD
+
+#    for k, v in dd.items():
+#        print k
+
+#    print "*********"
 
     # pose, v, J, weights, kintree_table, want_Jtr, xp
     result, Jtr = verts_core(**args)
@@ -201,6 +304,6 @@ def load_model(fname_or_dict, params = None):
 
     for k, v in dd.items():
         setattr(result, k, v)
-        
+
     return result
 

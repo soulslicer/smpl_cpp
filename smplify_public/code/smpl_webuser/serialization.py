@@ -117,6 +117,8 @@ def load_model(fname_or_dict, params = None):
 
     dd['pose'][3] = 0.78;
 
+    dd['pose'][20] = 0.78;
+
     if params is not None:
 
 

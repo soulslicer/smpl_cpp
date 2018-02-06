@@ -230,7 +230,7 @@ int main(int argc, char *argv[])
     render.initializationOnThread();
     std::shared_ptr<op::WObject> wObject1 = std::make_shared<op::WObject>();
     //wObject1->loadOBJFile("/home/raaj/project/","hello_smpl.obj","");
-    wObject1->loadEigenData(smpl.mV, smpl.mF);
+    wObject1->loadEigenData(smpl.mVTemp, smpl.mF);
     wObject1->print();
     render.addObject(wObject1);
     bool sw = true;
@@ -241,9 +241,9 @@ int main(int argc, char *argv[])
         else if(currAng <= -45) sw = true;
         if(sw) currAng += 0.5;
         else currAng -= 0.5;
-        cout << currAng << endl;
         smpl.mPose(1,0) = (M_PI/180. * currAng);
         smpl.mPose(1,1) = (M_PI/180. * currAng);
+        smpl.mPose(15,2) = (M_PI/180. * currAng);
 
         //std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
         smpl.updateModel();

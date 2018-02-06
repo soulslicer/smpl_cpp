@@ -72,39 +72,15 @@ def verts_core(pose, v, J, weights, kintree_table, want_Jtr=False, xp=chumpy):
     T = A.dot(weights.T)
 
 
-    weights = weights.T
-    X = np.zeros(shape=(4,4,weights.shape[1]))
-    for i in xrange(0,4):
-        X[i,:,:] = (A[i,:,:]).dot(weights)
-        print X[i,:,1116]
-        #break;
-
-    #T = np.array(T)
-
-    #print A.shape
-    #print weights.T.shape
-    #print T.shape
+#    weights = weights.T
+#    X = np.zeros(shape=(4,4,weights.shape[1]))
+#    for i in xrange(0,4):
+#        X[i,:,:] = (A[i,:,:]).dot(weights)
+#        print X[i,:,1116]
+#        #break;
 
     rest_shape_h = xp.vstack((v.T, np.ones((1, v.shape[0]))))
 
-
-    #print rest_shape_h
-
-    print "***"
-    print rest_shape_h[:,1116]
-    print (T[:,:,1116])
-    print (T[:,:,1116]).dot(rest_shape_h[:,1116])
-    print "***"
-
-#    v = np.array(v)
-#    for i in xrange(0,weights.shape[1]):
-#        newV = (T[:,:,i]).dot(rest_shape_h[:,i])
-#        v[i,:] = newV[0:3]
-
-    #print ( rest_shape_h[0, :].reshape((1, -1))).shape
-
-    print "BF: "
-    print v[1116,:]
 
     v =(T[:,0,:] * rest_shape_h[0, :].reshape((1, -1)) +
         T[:,1,:] * rest_shape_h[1, :].reshape((1, -1)) +
@@ -113,11 +89,6 @@ def verts_core(pose, v, J, weights, kintree_table, want_Jtr=False, xp=chumpy):
 
     v = v[:,:3] 
 
-#    v = np.array(v)
-#    for i in range(4000,4200):
-#        v[i,0] = v[i,0]+0.1
-    print "AF: "
-    print v[1116,:]
     
     if not want_Jtr:
         return v

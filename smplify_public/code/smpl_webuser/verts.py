@@ -26,6 +26,7 @@ import lbs
 from posemapper import posemap
 import scipy.sparse as sp
 from chumpy.ch import MatVecMult
+import numpy as np
 
 def ischumpy(x): return hasattr(x, 'dterms')
 
@@ -39,10 +40,23 @@ def verts_decorated(trans, pose,
 
     v = v_template
 
+    print "********"
+    print "betas : " + str(betas.shape)
+    print "posedirs : " + str(posedirs.shape)
+    print "shapedirs : " + str(shapedirs.shape)
+
     if shapedirs is not None:
         if betas is None:
             betas = chumpy.zeros(shapedirs.shape[-1])
         v_shaped = v + shapedirs.dot(betas)
+        #print shapedirs.dot(betas).shape
+
+        xx = np.random.rand(4,4,4)
+        print xx
+        #print xx[0,:,1]
+        print (np.array(xx)).tolist()
+        print (np.array(xx)).tolist()[1][1][1]
+
     else:
         v_shaped = v
         
@@ -52,14 +66,15 @@ def verts_decorated(trans, pose,
         v_posed = v_shaped
         
     v = v_posed
-        
+
+    # IS this needed
     if sp.issparse(J):
         regressor = J
-        J_tmpx = MatVecMult(regressor, v_shaped[:,0])        
-        J_tmpy = MatVecMult(regressor, v_shaped[:,1])        
-        J_tmpz = MatVecMult(regressor, v_shaped[:,2])        
-        J = chumpy.vstack((J_tmpx, J_tmpy, J_tmpz)).T            
-    else:    
+        J_tmpx = MatVecMult(regressor, v_shaped[:,0])
+        J_tmpy = MatVecMult(regressor, v_shaped[:,1])
+        J_tmpz = MatVecMult(regressor, v_shaped[:,2])
+        J = chumpy.vstack((J_tmpx, J_tmpy, J_tmpz)).T
+    else:
         assert(ischumpy(J))
         
     assert(bs_style=='lbs')

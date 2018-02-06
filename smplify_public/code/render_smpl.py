@@ -83,7 +83,7 @@ while(1):
     w, h = (640, 480)
 
     rt = np.zeros(3)
-    rt[1] = 1
+    #rt[1] = 1
     print rt
 
     rn.camera = ProjectPoints(v=m, rt=rt, t=np.array([0, 0, 2.]), f=np.array([w,w])/2., c=np.array([w,h])/2., k=np.zeros(5))

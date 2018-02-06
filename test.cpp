@@ -70,28 +70,24 @@ public:
         cout << "]" << endl;
     }
 
-    bool loadEigenFromJSON(const Json::Value& json, Eigen::MatrixXf& m){
+    bool loadEigenFromJSON(const Json::Value& json, Eigen::MatrixXf& m, bool debug = false){
         // Set Shape
-        int cols = json.size();
-        if(!cols) { cerr << "Matrix Has no Cols" << endl; return false;}
-        int rows = json[0].size();
+        int rows = json.size();
+        if(!rows) { cerr << "Matrix Has no Rows" << endl; return false;}
+        int cols = json[0].size();
         if(rows == 0) rows = 1;
         m.resize(rows, cols);
 
         // Load Data
-        for(int i=0; i<cols; i++){
-            if(rows > 1){
-                for(int j=0; j<rows; j++){
-                    m(j,i) = json[i][j].asFloat();
+        if(rows > 1){
+            for(int i=0; i<rows; i++){
+                for(int j=0; j<cols; j++){
+                    m(i,j) = json[i][j].asFloat();
                 }
-            }else{
-                m(0,i) = json[i].asFloat();
             }
+        }else{
+            throw std::runtime_error("Something wrong");
         }
-
-        Eigen::MatrixXf t;
-        t = m.transpose();
-        m = t;
 
         return true;
     }
@@ -107,8 +103,11 @@ public:
 
         cout << root["pose_training_info"] << endl;
 
+
+
         loadEigenFromJSON(root["pose"], mPose);
-        mPose = Eigen::Map<Eigen::MatrixXf>(mPose.data(), 24,3); // row-col
+
+        //mPose = Eigen::Map<Eigen::MatrixXf>(mPose.data(), 24,3); // row-col
 
         loadEigenFromJSON(root["f"], mF);
 
@@ -204,6 +203,7 @@ public:
             weightedBlockMatrix1[b] = block*mWeightsT; // Column x VSize ~2ms
         }
 
+        // Transform vertices with weight matrix
         for(int b=0; b<4; b++){
             Eigen::MatrixXf& block = weightedBlockMatrix1[b];
             for(int i=0; i<mV.rows(); i++){

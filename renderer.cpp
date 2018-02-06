@@ -169,6 +169,8 @@ void WObject::rebuild(int renderType)
     static float diffuse [4];
     static float specular[4];
 
+    // Should use vertex arrays somehow
+
     for ( int i=0; i<object.faces.size(); ++i ) // Each face
     {
         OBJFace& face = object.faces.at(i);

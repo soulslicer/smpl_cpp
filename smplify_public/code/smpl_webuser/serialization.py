@@ -27,7 +27,7 @@ import cPickle as pickle
 import chumpy as ch
 from chumpy.ch import MatVecMult
 from posemapper import posemap
-from verts import verts_core
+from verts import verts_core, verts_decorated
     
 def save_model(model, fname):
     m0 = model
@@ -97,7 +97,10 @@ def ready_arguments(fname_or_dict):
         if (s in dd) and not hasattr(dd[s], 'dterms'):
             dd[s] = ch.array(dd[s])
 
+    want_shapemodel = False
     if want_shapemodel:
+        #dd['betas'][0] = 10
+
         dd['v_shaped'] = dd['shapedirs'].dot(dd['betas'])+dd['v_template']
         v_shaped = dd['v_shaped']
         J_tmpx = MatVecMult(dd['J_regressor'], v_shaped[:,0])        
@@ -105,55 +108,22 @@ def ready_arguments(fname_or_dict):
         J_tmpz = MatVecMult(dd['J_regressor'], v_shaped[:,2])        
         dd['J'] = ch.vstack((J_tmpx, J_tmpy, J_tmpz)).T    
         dd['v_posed'] = v_shaped + dd['posedirs'].dot(posemap(dd['bs_type'])(dd['pose']))
+
+        print "*******"
+        print "Betas : " + str(dd['betas'].shape)
+        print "v_template : " + str(dd['v_template'].shape)
+        print "shapedirs : " + str(dd['shapedirs'].shape)
+        print "v_shaped : " + str(dd['v_shaped'].shape)
+
+        print dd['betas']
+
     else:    
         dd['v_posed'] = dd['v_template'] + dd['posedirs'].dot(posemap(dd['bs_type'])(dd['pose']))
             
     return dd
 
-
-
-def load_model(fname_or_dict, params = None):
+def save_model_json(fname_or_dict):
     dd = ready_arguments(fname_or_dict)
-
-    dd['pose'][3] = 0.78;
-
-    dd['pose'][20] = 0.78;
-
-    if params is not None:
-
-
-        # left leg
-        dd['pose'][3] = np.deg2rad(-45);
-        dd['pose'][4] = 0;
-        dd['pose'][5] = 0;
-
-    #    # right leg
-    #    dd['pose'][6] = -1;
-    #    dd['pose'][7] = 0;
-    #    dd['pose'][8] = 0;
-
-    #    # torso
-    #    dd['pose'][9] = -1;
-    #    dd['pose'][10] = 0;
-    #    dd['pose'][11] = 0;
-
-        # left knee
-#        dd['pose'][12] = params["left_knee_x"];
-#        dd['pose'][13] = 0;
-#        dd['pose'][14] = 0;
-
-    
-    args = {
-        'pose': dd['pose'],
-        'v': dd['v_posed'],
-        'J': dd['J'],
-        'weights': dd['weights'],
-        'kintree_table': dd['kintree_table'],
-        'xp': ch,
-        'want_Jtr': True,
-        'bs_style': dd['bs_style']
-    }
-
     import json
     customDict = dict()
     for k, v in dd.items():
@@ -166,7 +136,9 @@ def load_model(fname_or_dict, params = None):
             # No save
         if k == "pose":
             #print "\t" + str(v.shape)
-            customDict[k] = (np.array(v)).tolist()
+            tmp = np.array(v)
+            tmp = tmp.reshape(24,3)
+            customDict[k] = tmp.tolist()
         if k == "f":
             #print "\t" + str(v.shape)
             customDict[k] = (np.array(v)).tolist()
@@ -239,65 +211,51 @@ def load_model(fname_or_dict, params = None):
             #print v
             customDict[k] = (np.array(v)).tolist()
     print fname_or_dict
-    #with open("/home/raaj/project/"+'model.json', 'w') as outfile:
-    #    json.dump(customDict, outfile)
+    with open("/home/ryaadhav/smpl_cpp/model.json", 'w') as outfile:
+        json.dump(customDict, outfile)
 
-#    print "*********"
-#    import json
-#    customDict = dict()
-#    for key in args.keys():
-#        obj = args[key]
-#        type = args[key].__class__.__name__;
-#        print key + " : " + type + " :"
+tmp = 0
+def load_model(fname_or_dict, params = None):
+    dd = ready_arguments(fname_or_dict)
 
-#        if key == "J":
-#            (rows, cols) = obj.shape
-#            print obj.shape
-#            print obj
-#            customDict["J"] = (np.array(obj)).tolist()
-#        elif key == "weights":
-#            (rows, cols) = obj.shape
-#            print obj.shape
-#            #customDict["weights"] = (np.array(obj)).tolist()
-#        elif key == "v":
-#            (rows, cols) = obj.shape
-#            print obj.shape
-#            #customDict["v"] = (np.array(obj)).tolist()
-#        elif key == "bs_style":
-#            print obj
-#        elif key == "kintree_table":
-#            (rows, cols) = obj.shape
-#            print obj.shape
-#            print obj
-#        elif key == "pose":
-#            print obj
-#            print len(obj)
-#        elif key == "xp":
-#            obj = np
-#            print obj
-#        elif key == "want_Jtr":
-#            print obj
-##        elif key == "xp":
-##            (rows, cols) = obj.shape
-##            print obj.shape
-##        elif key == "bs_style":
-##            (rows, cols) = obj.shape
-##            print obj.shape
-##        if dataType == "<class 'scipy.sparse.csc.csc_matrix'>":
-##            print "XXXXXXXXXX"
-##            print dd[key]
-##        else:
-##            print "BO"
-#    with open('data.txt', 'w') as outfile:
-#        json.dump(customDict, outfile)
+    #save_model_json(fname_or_dict)
 
-#    print "*********"
-#    # SHOULD YOU USE THE FINAL OUTPUT INSTEAD
+    args = {
+        'pose': dd['pose'],
+        'v': dd['v_posed'],
+        'J': dd['J'],
+        'weights': dd['weights'],
+        'kintree_table': dd['kintree_table'],
+        'xp': ch,
+        'want_Jtr': True,
+        'bs_style': dd['bs_style'],
+    }
 
-#    for k, v in dd.items():
-#        print k
+    global tmp
+    tmp+=0.5
+    print tmp
+    dd['betas'][3] = tmp
 
-#    print "*********"
+    args2 = {
+        'trans': dd['trans'],
+        'pose': dd['pose'],
+        'v_template': dd['v_template'],
+        'J': dd['J'],
+        'weights': dd['weights'],
+        'kintree_table': dd['kintree_table'],
+        'bs_style': dd['bs_style'],
+        'f': dd['f'],
+        'bs_type': dd['bs_type'],
+        'posedirs': dd['posedirs'],
+        'betas' : dd['betas'],
+        'shapedirs' : dd['shapedirs'],
+        'want_Jtr': True
+    }
+
+    # def verts_decorated(trans, pose,
+    # v_template, J, weights, kintree_table, bs_style, f,
+    # bs_type=None, posedirs=None, betas=None, shapedirs=None, want_Jtr=False):
+    return verts_decorated(**args2)
 
     # pose, v, J, weights, kintree_table, want_Jtr, xp
     result, Jtr = verts_core(**args)

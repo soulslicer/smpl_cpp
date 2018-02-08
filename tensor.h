@@ -11,6 +11,8 @@ private:
     int tDim = -1;
 public:
     typedef Eigen::Tensor<float, T> Base;
+    typedef Eigen::TensorCwiseBinaryOp<Eigen::internal::scalar_sum_op<float,float>, const Base, const Base> BinaryOp;
+    typedef Eigen::TensorContractionOp<const std::array<Eigen::IndexPair<int>,1ul>, const Base, const Eigen::Tensor<float, 2>> Contraction2Op;
 
     TensorD(){
         tDim = T;
@@ -21,22 +23,25 @@ public:
         resize(size);
     }
 
-//    TensorD(const Eigen::Tensor<float, 3>& t){
-
-//        resize({t.dimensions()[0],t.dimensions()[1],t.dimensions()[2]});
-//        for(int d=0; d<depth(); d++){
-//            for(int r=0;r<rows(); r++){
-//                for(int c=0;c<cols(); c++){
-//                    this->operator()(d,r,c) = t(d,r,c);
-//                }
-//            }
-//        }
-//    }
-
     TensorD( const Base &d ) : Base(d)
     {
-        tDim = T;
-        cout << "COPY" << endl;
+        tDim = d.dimensions().size();
+    }
+
+    TensorD(const BinaryOp& x)
+    {
+        this->base() = x;
+        tDim = this->base().dimensions().size();
+    }
+
+    TensorD(const Contraction2Op& x)
+    {
+        this->base() = x;
+        tDim = this->base().dimensions().size();
+    }
+
+    TensorD<T> operator+(TensorD<T>& n){
+        return (this->base()+n.base());
     }
 
     ~TensorD(){
@@ -130,15 +135,8 @@ public:
     }
 
     TensorD<3> dot(const TensorD<2>& x){
-        Eigen::Tensor<float, 3>& A = *this;
-        const Eigen::Tensor<float, 2>& B = x;
-
         Eigen::array<Eigen::IndexPair<int>, 1> product_dims = { Eigen::IndexPair<int>(2, 0) };
-
-        //Eigen::Tensor<float, 3> AB = A.contract(B, product_dims);
-        //return AB;
-
-        return (Eigen::Tensor<float, 3>)A.contract(B, product_dims);
+        return this->base().contract(x.base(), product_dims);
     }
 
     void print2D(int rowCount = 4, int colCount = 4);
@@ -147,6 +145,7 @@ public:
 };
 
 template<> void TensorD<2>::print2D(int rowCount, int colCount){
+    printSize();
     std::cout << std::setprecision(3) << std::fixed;
     cout << "[";
     for(int i=0; i<rows(); i++){
@@ -168,6 +167,8 @@ template<> void TensorD<2>::print2D(int rowCount, int colCount){
 }
 
 template<> void TensorD<3>::print3D(int depthCount, int rowCount, int colCount){
+    printSize();
+    std::cout << std::setprecision(3) << std::fixed;
     cout << "[";
     for(int d=0; d<depth(); d++){
         if(d < depthCount || d >= depth()-depthCount){

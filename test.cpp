@@ -128,7 +128,7 @@ public:
     std::vector<BlockMatrix> blocks;
     std::vector<Eigen::MatrixXf> mShapeDirs;
 
-    Eigen::Tensor<float, 3> mShapedDirsTensor;
+    TensorD<3> mShapedDirsTensor;
 
     SMPL(){
         blocks.resize(4);
@@ -137,7 +137,7 @@ public:
         mBetas.setZero();
     }
 
-    bool loadTensorFromJSON(const Json::Value& json, Eigen::Tensor<float, 3>& t, bool debug = false){
+    bool loadTensorFromJSON(const Json::Value& json, TensorD<3>& t, bool debug = false){
         int depth = json.size();
         int rows = json[0].size();
         int cols = json[0][0].size();
@@ -147,8 +147,7 @@ public:
             cout << " C: " << cols << endl;
         }
 
-        std::array<Eigen::Tensor<float, 3>::Index, 3> size = {depth,rows,cols};
-        t.resize(size);
+        t.resize({depth,rows,cols});
 
         for(int d=0; d<depth; d++){
             for(int r=0; r<rows; r++){
@@ -290,22 +289,26 @@ public:
         std::vector<Eigen::Matrix4f> globalTransforms(24);
         std::vector<Eigen::Matrix4f> transforms(24);
 
-        //        // Shape
-        //        Eigen::Tensor<float, 2> mBetasTensor = getTensorFromMatrix(mBetas);
-        //        Eigen::array<Eigen::IndexPair<int>, 1> product_dims = { Eigen::IndexPair<int>(2, 0) };
-        //        Eigen::Tensor<float, 3> AB = mShapedDirsTensor.contract(mBetasTensor, product_dims);
-        //        for(int i=0; i<mVTemp1.rows(); i++){
-        //            mVTemp1(i,0) = mV(i,0) + AB(i,0,0);
-        //            mVTemp1(i,1) = mV(i,1) + AB(i,1,0);
-        //            mVTemp1(i,2) = mV(i,2) + AB(i,2,0);
-        //            mVTemp1(i,3) = 1;
-        //        }
-
         // Shape
-        for(int i=0; i<mShapeDirs.size(); i++){
-            mVTemp1.row(i) = mV.row(i) + (mShapeDirs[i] * mBetas).transpose();
+        TensorD<2> mBetasTensor;
+        mBetasTensor.setFromMatrix(mBetas);
+        TensorD<3> AB = mShapedDirsTensor.dot(mBetasTensor);
+        for(int i=0; i<mVTemp1.rows(); i++){
+            mVTemp1(i,0) = mV(i,0) + AB(i,0,0);
+            mVTemp1(i,1) = mV(i,1) + AB(i,1,0);
+            mVTemp1(i,2) = mV(i,2) + AB(i,2,0);
             mVTemp1(i,3) = 1;
         }
+
+//        // Shape
+//        for(int i=0; i<mShapeDirs.size(); i++){
+//            cout << (mShapeDirs[i] * mBetas).transpose() << endl;
+//            cout << mV.row(i) << endl;
+//            mV.row(i) +(mShapeDirs[i] * mBetas).transpose();
+//            //mVTemp1.row(i) = mV.row(i) + (mShapeDirs[i] * mBetas).transpose();
+//            mVTemp1(i,3) = 1;
+//        }
+//        exit(-1);
 
         // Body pose
         Eigen::Matrix4f& bodyPose = globalTransforms[0];
@@ -351,116 +354,13 @@ public:
     }
 };
 
-
-
-void testTensor(){
-    //    Eigen::Tensor<float, 3> a(1000,3,10);
-    //    Eigen::Tensor<float, 3> b(10,3);
-
-    TensorD<3> tensorA;
-    tensorA.resize({3,3,3});
-    tensorA.setZero();
-    tensorA.printSize();
-    tensorA.setValues({{{1,2,3},
-                        {4,5,6},
-                        {7,8,9}},
-
-                       {{10,11,12},
-                        {13,14,15},
-                        {16,17,18}},
-
-                       {{19,20,21},
-                        {22,23,24},
-                        {25,26,27}}});
-    tensorA.print();
-
-    TensorD<2> tensorB;
-    tensorB.resize({3,2});
-    tensorB.printSize();
-    tensorB.setValues({{1,3},
-                       {2,3},
-                       {3,3}});
-
-    tensorB.print();
-
-    tensorA.dot(tensorB).print();
-
-
-
-    Eigen::Tensor<float, 3> xx(3,3,3);
-
-    TensorD<3> ff = xx;
-
-//    ff.printSize();
-
-
-//    Eigen::Tensor<float, 3> eigenVersion;
-//    Eigen::Tensor<float, 3>* ptr = &eigenVersion;
-//    TensorD<3> myVersion = *ptr;
-
-//    TensorD<3> myVersion;
-
-//    TensorD<3>* ptr = &myVersion;
-//    Eigen::Tensor<float, 3>& aa = *ptr;
-
-
-
-//    TensorD<3> B;
-//    B.setZero();
-//    //B = B+B;
-
-    //Tensor<3> out = tensorA.dot(tensorB);
-
-//    Eigen::Tensor<float, 3> A;
-//    Tensor<3> B;
-//    B = B+B;
-//    //A = B;
-
-
-//    // Define Tensor
-//    Eigen::Tensor<float, 3> tensorA(1,1,1);
-//    // Resize it
-//    std::array<Eigen::Tensor<float, 3>::Index, 3> size = {3,3,3};
-//    tensorA.resize(size);
-//    tensorA.setZero();
-//    tensorA.setRandom();
-//    tensorA.setValues({{{1,2,3},
-//                        {4,5,6},
-//                        {7,8,9}},
-
-//                       {{10,11,12},
-//                        {13,14,15},
-//                        {16,17,18}},
-
-//                       {{19,20,21},
-//                        {22,23,24},
-//                        {25,26,27}}});
-//    cout << tensorA << endl;
-//    cout << tensorA(1,2,2) << endl;
-//    cout << tensorA.dimensions()[0] << endl;
-
-//    cout <<  "***********" << endl;
-//    Eigen::Tensor<float, 2> tensorB(3,2);
-//    tensorB.setZero();
-//    tensorB.setValues({{1,3},
-//                       {2,3},
-//                       {3,3}});
-//    printEigen(getMatrixFromTensor(tensorB));
-
-//    // Compute the traditional matrix product
-//    Eigen::array<Eigen::IndexPair<int>, 1> product_dims = { Eigen::IndexPair<int>(2, 0) };
-//    Eigen::Tensor<float, 3> AB = tensorA.contract(tensorB, product_dims);
-//    printTensor(AB);
-
-}
-
 int main(int argc, char *argv[])
 {
-    testTensor();
-    exit(-1);
+    //testTensor();
+    //exit(-1);
 
     SMPL smpl;
-    smpl.loadModelFromJSONFile("/home/ryaadhav/smpl_cpp/model.json");
+    smpl.loadModelFromJSONFile("/home/raaj/smpl_cpp/model.json");
     std::cout.setstate(std::ios_base::failbit);
     smpl.updateModel();
     std::cout.clear();
@@ -470,7 +370,7 @@ int main(int argc, char *argv[])
     std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
     std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. << " ms" << std::endl;
 
-    bool active = false;
+    bool active = true;
     op::WRender3D render;
     render.initializationOnThread();
     std::shared_ptr<op::WObject> wObject1 = std::make_shared<op::WObject>();

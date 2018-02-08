@@ -16,6 +16,101 @@ using namespace std;
 #include <iomanip>
 #include <chrono>
 
+#include <tensor.h>
+
+void printEigen(const Eigen::MatrixXf& m, int rowCount = 4, int colCount = 4){
+    std::cout << std::setprecision(3) << std::fixed;
+    cout << "R: " << m.rows() << " C: " << m.cols() << endl;
+    cout << "[";
+    for(int i=0; i<m.rows(); i++){
+        if(i < rowCount){
+            cout << "[";
+            for(int j=0; j<m.cols(); j++){
+                if(j < colCount)
+                    cout << m(i,j) << "     ";
+                else if(j == colCount)
+                    cout << " ... ";
+                else if(j >= m.cols()-colCount)
+                    cout << m(i,j) << "     ";
+            }
+            cout << "]" << endl;
+        }else if(i == rowCount){
+            cout << "..." << endl;
+            cout << "..." << endl;
+        }else if(i >= m.rows()-rowCount){
+            cout << "[";
+            for(int j=0; j<m.cols(); j++){
+                if(j < colCount)
+                    cout << m(i,j) << "     ";
+                else if(j == colCount)
+                    cout << " ... ";
+                else if(j >= m.cols()-colCount)
+                    cout << m(i,j) << "     ";
+            }
+            cout << "]" << endl;
+        }
+    }
+    cout << "]" << endl;
+}
+
+Eigen::MatrixXf getMatrixFromTensor(const Eigen::Tensor<float,3>& t, int d){
+    if(d >= t.dimensions()[0]){
+        throw std::runtime_error("Wrong d");
+    }
+    Eigen::MatrixXf m;
+    m.resize(t.dimensions()[1],t.dimensions()[2]);
+    for(int r=0;r<t.dimensions()[1]; r++){
+        for(int c=0;c<t.dimensions()[2]; c++){
+            m(r,c) = t(d,r,c);
+        }
+    }
+    return m;
+}
+
+Eigen::MatrixXf getMatrixFromTensor(const Eigen::Tensor<float,2>& t){
+    Eigen::MatrixXf m;
+    m.resize(t.dimensions()[0],t.dimensions()[1]);
+    for(int r=0;r<t.dimensions()[0]; r++){
+        for(int c=0;c<t.dimensions()[1]; c++){
+            m(r,c) = t(r,c);
+        }
+    }
+    return m;
+}
+
+Eigen::Tensor<float, 2> getTensorFromMatrix(const Eigen::MatrixXf& m){
+    Eigen::Tensor<float,2> t(1,1);
+    std::array<Eigen::Tensor<float, 2>::Index, 2> size = {m.rows(),m.cols()};
+    t.resize(size);
+    for(int r=0;r<m.rows(); r++){
+        for(int c=0;c<m.cols(); c++){
+            t(r,c) = m(r,c);
+        }
+    }
+    return t;
+}
+
+void printTensor(Eigen::Tensor<float,3>& t, int dCount = 4, int rowCount = 4, int colCount = 4){
+    cout << endl;
+    cout << "D: " << t.dimensions()[0] << " ";
+    for(int d=0;d<t.dimensions()[0]; d++){
+        if(d < dCount || d >= t.dimensions()[0]-dCount){
+            printEigen(getMatrixFromTensor(t,d), rowCount, colCount);
+        }else if(d==dCount){
+            cout << "..." << endl;
+            cout << "..." << endl;
+        }
+    }
+    cout << endl;
+}
+
+void printTensor(Eigen::Tensor<float,2>& t, int rowCount = 4, int colCount = 4){
+    cout << endl;
+    printEigen(getMatrixFromTensor(t), rowCount, colCount);
+    cout << endl;
+}
+
+
 class SMPL{
 public:
     Eigen::MatrixXf mV, mVTemp1, mVTemp2;
@@ -33,6 +128,8 @@ public:
     std::vector<BlockMatrix> blocks;
     std::vector<Eigen::MatrixXf> mShapeDirs;
 
+    Eigen::Tensor<float, 3> mShapedDirsTensor;
+
     SMPL(){
         blocks.resize(4);
         weightedBlockMatrix1.resize(4);
@@ -40,39 +137,28 @@ public:
         mBetas.setZero();
     }
 
-    void printEigen(const Eigen::MatrixXf& m, int colCount = 4, int rowCount = 4){
-        std::cout << std::setprecision(3) << std::fixed;
-        cout << "R: " << m.rows() << " C: " << m.cols() << endl;
-        cout << "[";
-        for(int i=0; i<m.rows(); i++){
-            if(i < rowCount){
-                cout << "[";
-                for(int j=0; j<m.cols(); j++){
-                    if(j < colCount)
-                        cout << m(i,j) << "     ";
-                    else if(j == colCount)
-                        cout << " ... ";
-                    else if(j >= m.cols()-colCount)
-                        cout << m(i,j) << "     ";
+    bool loadTensorFromJSON(const Json::Value& json, Eigen::Tensor<float, 3>& t, bool debug = false){
+        int depth = json.size();
+        int rows = json[0].size();
+        int cols = json[0][0].size();
+        if(debug){
+            cout << "D: " << depth;
+            cout << " R: " << rows;
+            cout << " C: " << cols << endl;
+        }
+
+        std::array<Eigen::Tensor<float, 3>::Index, 3> size = {depth,rows,cols};
+        t.resize(size);
+
+        for(int d=0; d<depth; d++){
+            for(int r=0; r<rows; r++){
+                for(int c=0; c<cols; c++){
+                    t(d,r,c) = json[d][r][c].asFloat();
                 }
-                cout << "]" << endl;
-            }else if(i == rowCount){
-                cout << "..." << endl;
-                cout << "..." << endl;
-            }else if(i >= m.rows()-rowCount){
-                cout << "[";
-                for(int j=0; j<m.cols(); j++){
-                    if(j < colCount)
-                        cout << m(i,j) << "     ";
-                    else if(j == colCount)
-                        cout << " ... ";
-                    else if(j >= m.cols()-colCount)
-                        cout << m(i,j) << "     ";
-                }
-                cout << "]" << endl;
             }
         }
-        cout << "]" << endl;
+
+        return true;
     }
 
     bool loadEigenVecFromJSON(const Json::Value& json, std::vector<Eigen::MatrixXf>& t, bool debug = false){
@@ -137,7 +223,9 @@ public:
 
         loadEigenFromJSON(root["pose"], mPose);
 
-        loadEigenVecFromJSON(root["shapedirs"], mShapeDirs, true);
+        loadEigenVecFromJSON(root["shapedirs"], mShapeDirs);
+
+        loadTensorFromJSON(root["shapedirs"], mShapedDirsTensor);
 
         loadEigenFromJSON(root["f"], mF);
 
@@ -202,6 +290,17 @@ public:
         std::vector<Eigen::Matrix4f> globalTransforms(24);
         std::vector<Eigen::Matrix4f> transforms(24);
 
+        //        // Shape
+        //        Eigen::Tensor<float, 2> mBetasTensor = getTensorFromMatrix(mBetas);
+        //        Eigen::array<Eigen::IndexPair<int>, 1> product_dims = { Eigen::IndexPair<int>(2, 0) };
+        //        Eigen::Tensor<float, 3> AB = mShapedDirsTensor.contract(mBetasTensor, product_dims);
+        //        for(int i=0; i<mVTemp1.rows(); i++){
+        //            mVTemp1(i,0) = mV(i,0) + AB(i,0,0);
+        //            mVTemp1(i,1) = mV(i,1) + AB(i,1,0);
+        //            mVTemp1(i,2) = mV(i,2) + AB(i,2,0);
+        //            mVTemp1(i,3) = 1;
+        //        }
+
         // Shape
         for(int i=0; i<mShapeDirs.size(); i++){
             mVTemp1.row(i) = mV.row(i) + (mShapeDirs[i] * mBetas).transpose();
@@ -252,18 +351,126 @@ public:
     }
 };
 
+
+
+void testTensor(){
+    //    Eigen::Tensor<float, 3> a(1000,3,10);
+    //    Eigen::Tensor<float, 3> b(10,3);
+
+    TensorD<3> tensorA;
+    tensorA.resize({3,3,3});
+    tensorA.setZero();
+    tensorA.printSize();
+    tensorA.setValues({{{1,2,3},
+                        {4,5,6},
+                        {7,8,9}},
+
+                       {{10,11,12},
+                        {13,14,15},
+                        {16,17,18}},
+
+                       {{19,20,21},
+                        {22,23,24},
+                        {25,26,27}}});
+    tensorA.print();
+
+    TensorD<2> tensorB;
+    tensorB.resize({3,2});
+    tensorB.printSize();
+    tensorB.setValues({{1,3},
+                       {2,3},
+                       {3,3}});
+
+    tensorB.print();
+
+    tensorA.dot(tensorB).print();
+
+
+
+    Eigen::Tensor<float, 3> xx(3,3,3);
+
+    TensorD<3> ff = xx;
+
+//    ff.printSize();
+
+
+//    Eigen::Tensor<float, 3> eigenVersion;
+//    Eigen::Tensor<float, 3>* ptr = &eigenVersion;
+//    TensorD<3> myVersion = *ptr;
+
+//    TensorD<3> myVersion;
+
+//    TensorD<3>* ptr = &myVersion;
+//    Eigen::Tensor<float, 3>& aa = *ptr;
+
+
+
+//    TensorD<3> B;
+//    B.setZero();
+//    //B = B+B;
+
+    //Tensor<3> out = tensorA.dot(tensorB);
+
+//    Eigen::Tensor<float, 3> A;
+//    Tensor<3> B;
+//    B = B+B;
+//    //A = B;
+
+
+//    // Define Tensor
+//    Eigen::Tensor<float, 3> tensorA(1,1,1);
+//    // Resize it
+//    std::array<Eigen::Tensor<float, 3>::Index, 3> size = {3,3,3};
+//    tensorA.resize(size);
+//    tensorA.setZero();
+//    tensorA.setRandom();
+//    tensorA.setValues({{{1,2,3},
+//                        {4,5,6},
+//                        {7,8,9}},
+
+//                       {{10,11,12},
+//                        {13,14,15},
+//                        {16,17,18}},
+
+//                       {{19,20,21},
+//                        {22,23,24},
+//                        {25,26,27}}});
+//    cout << tensorA << endl;
+//    cout << tensorA(1,2,2) << endl;
+//    cout << tensorA.dimensions()[0] << endl;
+
+//    cout <<  "***********" << endl;
+//    Eigen::Tensor<float, 2> tensorB(3,2);
+//    tensorB.setZero();
+//    tensorB.setValues({{1,3},
+//                       {2,3},
+//                       {3,3}});
+//    printEigen(getMatrixFromTensor(tensorB));
+
+//    // Compute the traditional matrix product
+//    Eigen::array<Eigen::IndexPair<int>, 1> product_dims = { Eigen::IndexPair<int>(2, 0) };
+//    Eigen::Tensor<float, 3> AB = tensorA.contract(tensorB, product_dims);
+//    printTensor(AB);
+
+}
+
 int main(int argc, char *argv[])
 {
+    testTensor();
+    exit(-1);
+
     SMPL smpl;
     smpl.loadModelFromJSONFile("/home/ryaadhav/smpl_cpp/model.json");
+    std::cout.setstate(std::ios_base::failbit);
     smpl.updateModel();
+    std::cout.clear();
 
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     smpl.updateModel();
     std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
-    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() <<std::endl;
+    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. << " ms" << std::endl;
 
-    bool active = true;
+    bool active = false;
     op::WRender3D render;
     render.initializationOnThread();
     std::shared_ptr<op::WObject> wObject1 = std::make_shared<op::WObject>();

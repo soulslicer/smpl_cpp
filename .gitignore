@@ -11,7 +11,7 @@
 *.layout.*
 
 #top level cmake for ros
-/CMakeLists.txt
+#/CMakeLists.txt
 
 # Qt-es
 *.pro.user
@@ -49,7 +49,7 @@ meshes.hdf5
 .cproject
 
 # qcreator stuff
-CMakeLists.txt.user
+#CMakeLists.txt.user
 
 srv/_*.py
 qtcreator-*

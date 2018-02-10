@@ -137,6 +137,92 @@ public:
         mBetas.setZero();
     }
 
+    enum Part
+    {
+        BODY,   // 0
+        LLEG,   // 1
+        RLEG,   // 2
+        LTORSO,    // 3
+        LKNEE,  // 4
+        RKNEE,  // 5
+        MTORSO,  // 6
+        LFOOT,  // 7
+        RFOOT,  // 8
+        UTORSO, // 9
+        LLFOOT, // 10
+        RRFOOT, // 11
+        HEAD,   // 12
+        LSHOULDER,  // 13
+        RSHOULDER,  // 14
+        NECK,   // 15
+        LSHOULDER2, // 16
+        RSHOULDER2, // 17
+        LELBOW, // 18
+        RELBOW, // 19
+        LWRIST, // 20
+        RWRIST, // 21
+        LFINGERS, // 22
+        RFINGERS, // 23
+    };
+
+    enum Shape
+    {
+        S0,
+        S1,
+        S2,
+        S3,
+        S4,
+        S5,
+        S6,
+        S7,
+        S8,
+        S9
+    };
+
+    void setPose(Part part, Eigen::Vector3f vec){
+        int row = -1;
+        if(part == Part::BODY) row = 0;
+        if(part == Part::LLEG) row = 1;
+        if(part == Part::RLEG) row = 2;
+        if(part == Part::LTORSO) row = 3;
+        if(part == Part::LKNEE) row = 4;
+        if(part == Part::RKNEE) row = 5;
+        if(part == Part::MTORSO) row = 6;
+        if(part == Part::LFOOT) row = 7;
+        if(part == Part::RFOOT) row = 8;
+        if(part == Part::UTORSO) row = 9;
+        if(part == Part::LLFOOT) row = 10;
+        if(part == Part::RRFOOT) row = 11;
+        if(part == Part::HEAD) row = 12;
+        if(part == Part::LSHOULDER) row = 13;
+        if(part == Part::RSHOULDER) row = 14;
+        if(part == Part::NECK) row = 15;
+        if(part == Part::LSHOULDER2) row = 16;
+        if(part == Part::RSHOULDER2) row = 17;
+        if(part == Part::LELBOW) row = 18;
+        if(part == Part::RELBOW) row = 19;
+        if(part == Part::LWRIST) row = 20;
+        if(part == Part::RWRIST) row = 21;
+        if(part == Part::LFINGERS) row = 22;
+        if(part == Part::RFINGERS) row = 23;
+        mPose.row(row) = vec;
+    }
+
+    void setShape(Shape shape, float val){
+        int row = -1;
+        if(shape == Shape::S0) row = 0;
+        if(shape == Shape::S1) row = 1;
+        if(shape == Shape::S2) row = 2;
+        if(shape == Shape::S3) row = 3;
+        if(shape == Shape::S4) row = 4;
+        if(shape == Shape::S5) row = 5;
+        if(shape == Shape::S6) row = 6;
+        if(shape == Shape::S7) row = 7;
+        if(shape == Shape::S8) row = 8;
+        if(shape == Shape::S9) row = 9;
+        mBetas(row) = val;
+    }
+
     bool loadTensorFromJSON(const Json::Value& json, TensorD<3>& t, bool debug = false){
         int depth = json.size();
         int rows = json[0].size();
@@ -300,16 +386,6 @@ public:
             mVTemp1(i,3) = 1;
         }
 
-//        // Shape
-//        for(int i=0; i<mShapeDirs.size(); i++){
-//            cout << (mShapeDirs[i] * mBetas).transpose() << endl;
-//            cout << mV.row(i) << endl;
-//            mV.row(i) +(mShapeDirs[i] * mBetas).transpose();
-//            //mVTemp1.row(i) = mV.row(i) + (mShapeDirs[i] * mBetas).transpose();
-//            mVTemp1(i,3) = 1;
-//        }
-//        exit(-1);
-
         // Body pose
         Eigen::Matrix4f& bodyPose = globalTransforms[0];
         bodyPose = rod(mPose.row(0), mJ.row(0));
@@ -354,6 +430,57 @@ public:
     }
 };
 
+void myFunc(const Eigen::Tensor<float, 2>& t){
+
+}
+
+void myFunc2(const Eigen::TensorMap<Eigen::Tensor<float, 2>>& t){
+
+}
+
+
+void testTensor(){
+
+    TensorD<2> t;
+    t.resize({4000,4000});
+    t.setRandom();
+
+    TensorD<2> f;
+    f.resize({4000,4000});
+
+    Eigen::MatrixXf matrix(4000,4000);
+    matrix.setRandom(4000,4000);
+
+    //cout << t(0,0) << endl;
+
+    cout << matrix(2300,2300) << endl;
+
+    //matrix.data()
+
+
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+
+//    f = t;
+
+
+      auto mapped_t = Eigen::TensorMap<Eigen::Tensor<float, 2>>(matrix.data(), 4000, 4000);
+
+      myFunc2(mapped_t);
+
+//mapped_t + mapped_t;
+      //cout << mapped_t(2300,2300) << endl;
+
+      //Eigen::Tensor<float, 2> tt = Eigen::TensorLayoutSwapOp<Eigen::Tensor<float, 2, Eigen::RowMajor>>(mapped_t);
+
+//    //cout << hisPointer[0] << endl;
+
+    std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
+    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. << " ms" << std::endl;
+
+    //cout << f(0,0) << endl;
+
+}
+
 int main(int argc, char *argv[])
 {
     //testTensor();
@@ -394,10 +521,9 @@ int main(int argc, char *argv[])
                 currAng -= 0.5;
                 currB -= 0.1;
             }
-            smpl.mPose(1,0) = (M_PI/180. * currAng);
-            smpl.mPose(1,1) = (M_PI/180. * currAng);
-            smpl.mPose(15,2) = (M_PI/180. * currAng);
-            smpl.mBetas(3) = currB;
+            smpl.setPose(SMPL::LLEG, Eigen::Vector3f(M_PI/180. * currAng, M_PI/180. * currAng, 0));
+            smpl.setPose(SMPL::NECK, Eigen::Vector3f(0, 0, M_PI/180. * currAng));
+            smpl.setShape(SMPL::S3, currB);
 
             begin = std::chrono::steady_clock::now();
             smpl.updateModel();

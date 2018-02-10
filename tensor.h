@@ -126,7 +126,7 @@ public:
     }
 
     void setFromMatrix(const Eigen::MatrixXf& m){
-        resize({m.rows(), m.cols()});
+        if(!(m.rows() == rows() && m.cols() == cols())) resize({m.rows(), m.cols()});
         for(int r=0;r<rows(); r++){
             for(int c=0;c<cols(); c++){
                 this->operator()(r,c) = m(r,c);

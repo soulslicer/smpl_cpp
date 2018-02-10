@@ -151,10 +151,10 @@ public:
         UTORSO, // 9
         LLFOOT, // 10
         RRFOOT, // 11
-        HEAD,   // 12
+        NECK,   // 12
         LSHOULDER,  // 13
         RSHOULDER,  // 14
-        NECK,   // 15
+        HEAD,   // 15
         LSHOULDER2, // 16
         RSHOULDER2, // 17
         LELBOW, // 18
@@ -425,6 +425,8 @@ public:
                 mVTemp2(i,b) = mVTemp1.row(i) * block.col(i);
             }
         }
+
+        // Need to set final transform too!
 
         return true;
     }

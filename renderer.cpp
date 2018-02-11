@@ -139,7 +139,7 @@ inline void split( const std::string& str, char delim, std::vector<std::string>&
 
 void log(std::string x){
     if(LOG_VERBOSE_3D_RENDERER)
-    std::cout << x << std::endl;
+        std::cout << x << std::endl;
 }
 
 void error(std::string x, const int line, const std::string& function, const std::string& file){
@@ -150,7 +150,7 @@ static const unsigned int renderWidth  = 640;
 static const unsigned int renderHeight = 480;
 std::vector<std::shared_ptr<WObject>> wObjects;
 
-void WObject::rebuild(int renderType)
+void WObject::rebuild(int renderType, float param)
 {
     if (listId != 0)
         glDeleteLists( listId, 1 );
@@ -170,53 +170,59 @@ void WObject::rebuild(int renderType)
     static float specular[4];
 
     // Should use vertex arrays somehow
-
-    for ( int i=0; i<object.faces.size(); ++i ) // Each face
-    {
-        OBJFace& face = object.faces.at(i);
-        OBJMaterial& material = object.materials[face.material];
-
-        if(face.material.size()){
-            glMaterialfv( GL_FRONT, GL_AMBIENT,  material.Ka );
-            glMaterialfv( GL_FRONT, GL_DIFFUSE,  material.Kd );
-            glMaterialfv( GL_FRONT, GL_SPECULAR, material.Ks );
-            glBindTexture( GL_TEXTURE_2D, material.texture );
-        }
-
-        if(renderType == RENDER_NORMAL){
-            glBegin( GL_POLYGON );
-        }else if(renderType == RENDER_POINTS){
-            glBegin( GL_POINTS );
-        }else if(renderType == RENDER_WIREFRAME){
-            glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-            glBegin( GL_POLYGON );
-        }else{
-            throw std::runtime_error("No such render type");
-        }
-
-        for ( int j=0; j<object.faces.at(i).items.size(); ++j ) // Each vertex
-        {
-            OBJFaceItem& item = object.faces.at(i).items.at(j);
-
-#ifdef USE_COMPUTED_NORMALS
-            glNormal3fv( object.computedNormals.at(item.vertexIndex).coords );
-#else
-            glNormal3fv( object.normals.at(item.vertexIndex).coords );
-#endif
-
-            if ( item.textureIndex > 0 ){
-                glTexCoord2f( object.textures.at(item.textureIndex).coords[0]*material.texScaleU,
-                        object.textures.at(item.textureIndex).coords[1]*material.texScaleV );
-            }
-
-            glVertex3fv( object.vertices.at(item.vertexIndex).coords );
-
+    if(renderType == RENDER_POINTS){
+        glPointSize(param);
+        glBegin( GL_POINTS );
+        for(int i=0; i<object.vertices.size(); ++i){
+            glVertex3fv( object.vertices.at(i).coords );
         }
         glEnd();
-    }
+    }else{
+        for ( int i=0; i<object.faces.size(); ++i ) // Each face
+        {
+            OBJFace& face = object.faces.at(i);
+            OBJMaterial& material = object.materials[face.material];
 
-    if(renderType == RENDER_WIREFRAME){
-        glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+            if(face.material.size()){
+                glMaterialfv( GL_FRONT, GL_AMBIENT,  material.Ka );
+                glMaterialfv( GL_FRONT, GL_DIFFUSE,  material.Kd );
+                glMaterialfv( GL_FRONT, GL_SPECULAR, material.Ks );
+                glBindTexture( GL_TEXTURE_2D, material.texture );
+            }
+
+            if(renderType == RENDER_NORMAL){
+                glBegin( GL_POLYGON );
+            }else if(renderType == RENDER_WIREFRAME){
+                glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+                glBegin( GL_POLYGON );
+            }else{
+                throw std::runtime_error("No such render type");
+            }
+
+            for ( int j=0; j<object.faces.at(i).items.size(); ++j ) // Each vertex
+            {
+                OBJFaceItem& item = object.faces.at(i).items.at(j);
+
+#ifdef USE_COMPUTED_NORMALS
+                glNormal3fv( object.computedNormals.at(item.vertexIndex).coords );
+#else
+                glNormal3fv( object.normals.at(item.vertexIndex).coords );
+#endif
+
+                if ( item.textureIndex > 0 ){
+                    glTexCoord2f( object.textures.at(item.textureIndex).coords[0]*material.texScaleU,
+                            object.textures.at(item.textureIndex).coords[1]*material.texScaleV );
+                }
+
+                glVertex3fv( object.vertices.at(item.vertexIndex).coords );
+
+            }
+            glEnd();
+        }
+
+        if(renderType == RENDER_WIREFRAME){
+            glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+        }
     }
 
     glDisable( GL_NORMALIZE );
@@ -248,7 +254,7 @@ bool WObject::loadEigenData(const Eigen::MatrixXf& v, const Eigen::MatrixXf& f){
     if(v.rows() == mObject->vertices.size()-1)
         clearOBJFile(false);
     else
-       clearOBJFile(true);
+        clearOBJFile(true);
 
     OBJMaterial& defaultMaterial = mObject->materials[""];
     defaultMaterial.Ka[0] = 1;

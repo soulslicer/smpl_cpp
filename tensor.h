@@ -11,8 +11,12 @@ private:
     int tDim = -1;
 public:
     typedef Eigen::Tensor<float, T> Base;
+    typedef Eigen::TensorMap<Eigen::Tensor<float, T>> Map;
+    typedef Eigen::TensorMap<Eigen::Tensor<float, 2>> Map2D;
+    typedef Eigen::TensorMap<Eigen::Tensor<float, 3>> Map3D;
     typedef Eigen::TensorCwiseBinaryOp<Eigen::internal::scalar_sum_op<float,float>, const Base, const Base> BinaryOp;
     typedef Eigen::TensorContractionOp<const std::array<Eigen::IndexPair<int>,1ul>, const Base, const Eigen::Tensor<float, 2>> Contraction2Op;
+    typedef Eigen::TensorContractionOp<const std::array<Eigen::IndexPair<int>,1ul>, const Base, const Map2D> Contraction2MapOp;
 
     TensorD(){
         tDim = T;
@@ -35,6 +39,12 @@ public:
     }
 
     TensorD(const Contraction2Op& x)
+    {
+        this->base() = x;
+        tDim = this->base().dimensions().size();
+    }
+
+    TensorD(const Contraction2MapOp& x)
     {
         this->base() = x;
         tDim = this->base().dimensions().size();
@@ -137,6 +147,12 @@ public:
     TensorD<3> dot(const TensorD<2>& x){
         Eigen::array<Eigen::IndexPair<int>, 1> product_dims = { Eigen::IndexPair<int>(2, 0) };
         return this->base().contract(x.base(), product_dims);
+    }
+
+    TensorD<3> dot(Eigen::MatrixXf& m){
+        auto map = Map2D(m.data(), m.rows(), m.cols());
+        Eigen::array<Eigen::IndexPair<int>, 1> product_dims = { Eigen::IndexPair<int>(2, 0) };
+        return this->base().contract(map, product_dims);
     }
 
     void print2D(int rowCount = 4, int colCount = 4);

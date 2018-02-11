@@ -40,7 +40,7 @@ namespace op
         bool loadOBJFile( const std::string& data_path, const std::string& mesh_filename, const std::string& material_filename );
         bool loadEigenData(const Eigen::MatrixXf& v, const Eigen::MatrixXf& f);
         void render();
-        void rebuild(int renderType = WObject::RENDER_NORMAL);
+        void rebuild(int renderType = WObject::RENDER_NORMAL, float param = 1);
 
     private:
         std::string mDataPath;

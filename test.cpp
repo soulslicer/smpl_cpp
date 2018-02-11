@@ -117,7 +117,7 @@ public:
     Eigen::MatrixXf mF;
     Eigen::MatrixXf mPose;
     Eigen::MatrixXf mKintreeTable;
-    Eigen::MatrixXf mJ;
+    Eigen::MatrixXf mJ, mJTemp1, mJTemp2;
     Eigen::MatrixXf mTrans;
     Eigen::MatrixXf mWeights;
     Eigen::MatrixXf mWeightsT;
@@ -376,9 +376,7 @@ public:
         std::vector<Eigen::Matrix4f> transforms(24);
 
         // Shape
-        TensorD<2> mBetasTensor;
-        mBetasTensor.setFromMatrix(mBetas);
-        TensorD<3> AB = mShapedDirsTensor.dot(mBetasTensor);
+        TensorD<3> AB = mShapedDirsTensor.dot(mBetas);
         for(int i=0; i<mVTemp1.rows(); i++){
             mVTemp1(i,0) = mV(i,0) + AB(i,0,0);
             mVTemp1(i,1) = mV(i,1) + AB(i,1,0);
@@ -432,67 +430,18 @@ public:
     }
 };
 
-void myFunc(const Eigen::Tensor<float, 2>& t){
-
-}
-
-void myFunc2(const Eigen::TensorMap<Eigen::Tensor<float, 2>>& t){
-
-}
-
-
-void testTensor(){
-
-    TensorD<2> t;
-    t.resize({4000,4000});
-    t.setRandom();
-
-    TensorD<2> f;
-    f.resize({4000,4000});
-
-    Eigen::MatrixXf matrix(4000,4000);
-    matrix.setRandom(4000,4000);
-
-    //cout << t(0,0) << endl;
-
-    cout << matrix(2300,2300) << endl;
-
-    //matrix.data()
-
-
-    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-
-//    f = t;
-
-
-      auto mapped_t = Eigen::TensorMap<Eigen::Tensor<float, 2>>(matrix.data(), 4000, 4000);
-
-      myFunc2(mapped_t);
-
-//mapped_t + mapped_t;
-      //cout << mapped_t(2300,2300) << endl;
-
-      //Eigen::Tensor<float, 2> tt = Eigen::TensorLayoutSwapOp<Eigen::Tensor<float, 2, Eigen::RowMajor>>(mapped_t);
-
-//    //cout << hisPointer[0] << endl;
-
-    std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
-    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. << " ms" << std::endl;
-
-    //cout << f(0,0) << endl;
-
-}
-
 int main(int argc, char *argv[])
 {
     //testTensor();
     //exit(-1);
 
     SMPL smpl;
-    smpl.loadModelFromJSONFile("/home/raaj/smpl_cpp/model.json");
+    smpl.loadModelFromJSONFile(std::string(CMAKE_CURRENT_SOURCE_DIR) + "/model.json");
     std::cout.setstate(std::ios_base::failbit);
     smpl.updateModel();
     std::cout.clear();
+
+    smpl.setPose(SMPL::LLEG, Eigen::Vector3f(M_PI/180. * 20, M_PI/180. * 20, M_PI/180. * 20));
 
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     smpl.updateModel();
@@ -506,7 +455,9 @@ int main(int argc, char *argv[])
     //wObject1->loadOBJFile("/home/raaj/project/","hello_smpl.obj","");
     wObject1->loadEigenData(smpl.mVTemp2, smpl.mF);
     wObject1->print();
+    Eigen::MatrixXf empt;
     render.addObject(wObject1);
+    wObject1->rebuild(op::WObject::RENDER_WIREFRAME, 5);
     bool sw = true;
     while(1){
 

@@ -221,9 +221,9 @@ tmp = 0
 def load_model(fname_or_dict, params = None):
     dd = ready_arguments(fname_or_dict)
 
-    save_model_json(fname_or_dict)
+    #save_model_json(fname_or_dict)
 
-    #dd['pose'][5] = 0.78
+    dd['pose'][5] = 0.78
 
     args = {
         'pose': dd['pose'],
@@ -239,7 +239,7 @@ def load_model(fname_or_dict, params = None):
     #global tmp
     #tmp+=0.5
     #print tmp
-    dd['betas'][3] = 20
+    #dd['betas'][3] = 20
 
     args2 = {
         'trans': dd['trans'],
@@ -257,10 +257,8 @@ def load_model(fname_or_dict, params = None):
         'want_Jtr': True
     }
 
-    # def verts_decorated(trans, pose,
-    # v_template, J, weights, kintree_table, bs_style, f,
-    # bs_type=None, posedirs=None, betas=None, shapedirs=None, want_Jtr=False):
-    return verts_decorated(**args2)
+    # FOR SHAPE
+    # return verts_decorated(**args2)
 
     # pose, v, J, weights, kintree_table, want_Jtr, xp
     result, Jtr = verts_core(**args)

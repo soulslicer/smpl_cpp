@@ -225,6 +225,8 @@ void WObject::rebuild(int renderType, float param)
         }
     }
 
+    // Test code
+
     glDisable( GL_NORMALIZE );
     glDisable( GL_TEXTURE_2D );
 

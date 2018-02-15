@@ -40,6 +40,7 @@ file(GLOB test_SRC
     "renderer.h"
     "test.cpp"
     "tensor.h"
+    "trackbar.h"
     "smplify_public/code/*.py"
     "smplify_public/code/smpl_webuser/*.py"
     "smplify_public/code/smpl_webuser/hello_world/*.py"

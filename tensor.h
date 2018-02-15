@@ -14,7 +14,7 @@ public:
     typedef Eigen::TensorMap<Eigen::Tensor<float, T>> Map;
     typedef Eigen::TensorMap<Eigen::Tensor<float, 2>> Map2D;
     typedef Eigen::TensorMap<Eigen::Tensor<float, 3>> Map3D;
-    typedef Eigen::TensorCwiseBinaryOp<Eigen::internal::scalar_sum_op<float,float>, const Base, const Base> BinaryOp;
+    typedef Eigen::TensorCwiseBinaryOp<Eigen::internal::scalar_sum_op<float>, const Base, const Base> BinaryOp;
     typedef Eigen::TensorContractionOp<const std::array<Eigen::IndexPair<int>,1ul>, const Base, const Eigen::Tensor<float, 2>> Contraction2Op;
     typedef Eigen::TensorContractionOp<const std::array<Eigen::IndexPair<int>,1ul>, const Base, const Map2D> Contraction2MapOp;
 
@@ -204,5 +204,53 @@ template<> void TensorD<2>::print(){
 template<> void TensorD<3>::print(){
     print3D();
 }
+
+std::string getSpaces(int spaces, bool empt = false){
+    std::string s = "";
+    if(empt) return s;
+    for(int i=0; i<spaces; i++)
+        s+=" ";
+    return s;
+}
+
+void printEigen(const Eigen::MatrixXf& m, int colCount = 4, int rowCount = 4, int spaces = 4){
+    std::cout << std::setprecision(3) << std::fixed;
+    cout << "R: " << m.rows() << " C: " << m.cols() << endl;
+    cout << "[";
+    for(int i=0; i<m.rows(); i++){
+        if(i < rowCount){
+            cout << "[";
+            for(int j=0; j<m.cols(); j++){
+                bool empt = false;
+                if(j == m.cols()-1) empt = true;
+                if(j < colCount)
+                    cout << m(i,j) << getSpaces(spaces,empt);
+                else if(j == colCount)
+                    cout << " ... ";
+                else if(j >= m.cols()-colCount)
+                    cout << m(i,j) << getSpaces(spaces,empt);
+            }
+            cout << "]" << endl;
+        }else if(i == rowCount){
+            cout << "..." << endl;
+            cout << "..." << endl;
+        }else if(i >= m.rows()-rowCount){
+            cout << "[";
+            for(int j=0; j<m.cols(); j++){
+                bool empt = false;
+                if(j == m.cols()-1) empt = true;
+                if(j < colCount)
+                    cout << m(i,j) << getSpaces(spaces,empt);
+                else if(j == colCount)
+                    cout << " ... ";
+                else if(j >= m.cols()-colCount)
+                    cout << m(i,j) << getSpaces(spaces,empt);
+            }
+            cout << "]" << endl;
+        }
+    }
+    cout << "]" << endl;
+}
+
 
 #endif

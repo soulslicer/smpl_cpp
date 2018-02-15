@@ -68,6 +68,8 @@ def global_rigid_transformation(pose, J, kintree_table, xp):
 
 
 def verts_core(pose, v, J, weights, kintree_table, want_Jtr=False, xp=chumpy):
+    import time
+    start_time = time.time()
     A, A_global = global_rigid_transformation(pose, J, kintree_table, xp)
     T = A.dot(weights.T)
 
@@ -89,6 +91,8 @@ def verts_core(pose, v, J, weights, kintree_table, want_Jtr=False, xp=chumpy):
 
     v = v[:,:3] 
 
+    elapsed = (time.time() - start_time)*1000.
+    print("--- %s ms ---" % elapsed)
     
     if not want_Jtr:
         return v

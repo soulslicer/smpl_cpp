@@ -16,6 +16,7 @@ using namespace std;
 #include <iomanip>
 #include <chrono>
 
+#include <trackbar.h>
 #include <tensor.h>
 
 class SMPL{
@@ -24,7 +25,7 @@ public:
     Eigen::MatrixXf mF;
     Eigen::MatrixXf mPose;
     Eigen::MatrixXf mKintreeTable;
-    Eigen::MatrixXf mJ, mJTemp1, mJTemp2;
+    Eigen::MatrixXf mJ, mJTemp1;
     Eigen::MatrixXf mTrans;
     Eigen::MatrixXf mWeights;
     Eigen::MatrixXf mWeightsT;
@@ -224,6 +225,7 @@ public:
         loadEigenFromJSON(root["kintree_table"], mKintreeTable);
 
         loadEigenFromJSON(root["J"], mJ);
+        mJTemp1 = mJ;
 
         loadEigenFromJSON(root["trans"], mTrans);
 
@@ -299,6 +301,9 @@ public:
         for(int i=1; i<globalTransforms.size(); i++){
             Eigen::Matrix4f& pose = globalTransforms[i];
             pose = globalTransforms[parent[i]] * rod(mPose.row(i), mJ.row(i) - mJ.row(parent[i]));
+            mJTemp1(i,0) = pose(0,3);
+            mJTemp1(i,1) = pose(1,3);
+            mJTemp1(i,2) = pose(2,3);
         }
 
         // Transforms
@@ -341,6 +346,9 @@ int main(int argc, char *argv[])
 {
     //testTensor();
     //exit(-1);
+    bool active = true;
+    bool track = false;
+    bool joints = false;
 
     SMPL smpl;
     smpl.loadModelFromJSONFile(std::string(CMAKE_CURRENT_SOURCE_DIR) + "/model.json");
@@ -355,16 +363,32 @@ int main(int argc, char *argv[])
     std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
     std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. << " ms" << std::endl;
 
-    bool active = true;
+    // Trackbar
+    DoubleTrackManager trackManager;
+    if(track){
+        trackManager.setupWindow("Track");
+        trackManager.addTrack("LLEG_X",M_PI);
+        trackManager.addTrack("LLEG_Y",M_PI);
+        trackManager.addTrack("LLEG_Z",M_PI);
+    }
+
     op::WRender3D render;
     render.initializationOnThread();
     std::shared_ptr<op::WObject> wObject1 = std::make_shared<op::WObject>();
     //wObject1->loadOBJFile("/home/raaj/project/","hello_smpl.obj","");
     wObject1->loadEigenData(smpl.mVTemp2, smpl.mF);
     wObject1->print();
-    Eigen::MatrixXf empt;
     render.addObject(wObject1);
-    wObject1->rebuild(op::WObject::RENDER_WIREFRAME, 5);
+    wObject1->rebuild(op::WObject::RENDER_WIREFRAME);
+
+    std::shared_ptr<op::WObject> wObject2 = std::make_shared<op::WObject>();
+    if(joints){
+        Eigen::MatrixXf empt;
+        wObject2->loadEigenData(smpl.mJTemp1, empt);
+        render.addObject(wObject2);
+        wObject2->rebuild(op::WObject::RENDER_POINTS, 10);
+    }
+
     bool sw = true;
     while(1){
 
@@ -385,34 +409,25 @@ int main(int argc, char *argv[])
             smpl.setPose(SMPL::NECK, Eigen::Vector3f(0, 0, M_PI/180. * currAng));
             smpl.setShape(SMPL::S3, currB);
 
-            begin = std::chrono::steady_clock::now();
             smpl.updateModel();
+            begin = std::chrono::steady_clock::now();
             wObject1->loadEigenData(smpl.mVTemp2, smpl.mF);
             wObject1->rebuild(op::WObject::RENDER_NORMAL);
             end= std::chrono::steady_clock::now();
-            std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() <<std::endl;
+            std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. <<std::endl;
         }
 
         render.workOnThread();
+
+        if(track){
+            trackManager.spin();
+            if(trackManager.changeOccured()){
+                smpl.setPose(SMPL::LLEG, Eigen::Vector3f(trackManager.getTrackValue("LLEG_X"), trackManager.getTrackValue("LLEG_Y"), trackManager.getTrackValue("LLEG_Z")));
+                smpl.updateModel();
+                wObject1->loadEigenData(smpl.mVTemp2, smpl.mF);
+                wObject1->rebuild(op::WObject::RENDER_NORMAL);
+            }
+        }
+
     }
 }
-
-
-//Eigen::Tensor<float, 3> m(3,10,10);
-////Eigen::Tensor<float, 3>::Index i;
-//std::array<Eigen::Tensor<float, 3>::Index, 3> size = {3,3,3};
-//m.resize(size);
-//m.setZero();
-//m(1,0,0) = 4;
-
-//m(2,0,0) = 4;
-
-//cout << m << endl;
-
-
-////m.base().resize(2,2);
-//// ...
-////tensr.resize(...);
-
-//exit(-1);
-////Eigen::Tensor::Dimensions d = m.Dimensions;

@@ -113,6 +113,12 @@ struct OBJObject
     std::map<std::string,OBJMaterial> materials;
 };
 
+struct Vertex{
+    GLfloat position[3];
+    GLfloat normal[3];
+    GLfloat texcoord[2];
+};
+
 inline void chop( std::string& str )
 {
     std::string whitespaces (" \t\f\v\n\r");
@@ -149,6 +155,76 @@ void error(std::string x, const int line, const std::string& function, const std
 static const unsigned int renderWidth  = 640;
 static const unsigned int renderHeight = 480;
 std::vector<std::shared_ptr<WObject>> wObjects;
+
+void WObject::rebuildVArr(int renderType, float param){
+    if (listId != 0)
+        glDeleteLists( listId, 1 );
+
+    glEnable( GL_TEXTURE_2D );
+    listId = glGenLists(1);
+    log(std::to_string(listId));
+    glNewList( listId, GL_COMPILE );
+    glColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
+
+    OBJObject& object = *mObject.get();
+    glEnable( GL_NORMALIZE );
+    glEnable( GL_TEXTURE_2D );
+
+    static float ambient [4];
+    static float diffuse [4];
+    static float specular[4];
+
+    std::vector<Vertex> vertexdata(object.vertices.size());
+    for(int i=0; i<object.vertices.size(); i++){
+        Vertex& v = vertexdata[i];
+        v.position[0] = object.vertices.at(i).coords[0];
+        v.position[1] = object.vertices.at(i).coords[1];
+        v.position[2] = object.vertices.at(i).coords[2];
+        v.normal[0] = object.computedNormals.at(i).coords[0];
+        v.normal[1] = object.computedNormals.at(i).coords[1];
+        v.normal[2] = object.computedNormals.at(i).coords[2];
+        // Texture not implemented
+    }
+
+    std::vector<GLushort> indexdata(object.faces.size()*3);
+    for(int i=0; i<object.faces.size(); i++){
+        OBJFace& face = object.faces.at(i);
+        indexdata[i*3 + 0] = face.items[0].vertexIndex;
+        indexdata[i*3 + 1] = face.items[1].vertexIndex;
+        indexdata[i*3 + 2] = face.items[2].vertexIndex;
+    }
+
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbuffer);
+
+    // copy data into the buffer object
+    glBufferData(GL_ARRAY_BUFFER, vertexdata.size() * sizeof(Vertex), &vertexdata[0], GL_STATIC_DRAW);
+
+    // set up vertex attributes
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glVertexPointer(3, GL_FLOAT, sizeof(Vertex), (void*)offsetof(Vertex, position)); // vertices
+    glEnableClientState(GL_NORMAL_ARRAY);
+    glNormalPointer(GL_FLOAT, sizeof(Vertex), (void*)offsetof(Vertex, normal)); // normals
+    glClientActiveTexture(GL_TEXTURE0);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex), (void*)offsetof(Vertex, texcoord)); // normal
+
+    // Create and bind a BO for index data
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuffer);
+
+    // copy data into the buffer object
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexdata.size() * sizeof(GLushort), &indexdata[0], GL_STATIC_DRAW);
+
+    // Draw elem
+    glBindVertexArray(0);
+    glBindVertexArray(vao);
+    glDrawElements(GL_TRIANGLES, indexdata.size(), GL_UNSIGNED_SHORT,     (void*)0);
+
+    glDisable( GL_NORMALIZE );
+    glDisable( GL_TEXTURE_2D );
+
+    glEndList();
+}
 
 void WObject::rebuild(int renderType, float param)
 {
@@ -224,8 +300,6 @@ void WObject::rebuild(int renderType, float param)
             glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
         }
     }
-
-    // Test code
 
     glDisable( GL_NORMALIZE );
     glDisable( GL_TEXTURE_2D );
@@ -682,12 +756,30 @@ void WObject::processMeshLine( const std::string& line )
 WObject::WObject()
 {
     listId = 0;
+    vao = 0;
+    vbuffer = 0;
+
+    // Create and bind a VAO
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
+    // Create and bind a BO for vertex data
+    glGenBuffers(1, &vbuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, vbuffer);
+
+    // Create and bind a BO for vertex data
+    glGenBuffers(1, &ibuffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuffer);
+
     mObject = std::make_shared<OBJObject>();
 }
 
 WObject::~WObject()
 {
-
+    glDeleteBuffers(1, &vao);
+    glDeleteBuffers(1, &vbuffer);
+    glDeleteBuffers(1, &ibuffer);
+    clearOBJFile();
 }
 
 void WObject::print()
@@ -930,6 +1022,7 @@ void WRender3D::initializationOnThread()
         glShadeModel( GL_SMOOTH );
         glEnable( GL_CULL_FACE );
         glClearColor( 1, 1, 1, 1 );
+        glewInit();
         //glClearColor( 44./255., 44./255., 44./255., 1 );
 
         glutMouseFunc(mouseButton);

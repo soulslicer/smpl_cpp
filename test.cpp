@@ -342,11 +342,177 @@ public:
     }
 };
 
+//const int renderWidth = 640;
+//const int renderHeight = 480;
+
+//int main(){
+
+//    SMPL smpl;
+//    smpl.loadModelFromJSONFile(std::string(CMAKE_CURRENT_SOURCE_DIR) + "/model.json");
+//    std::cout.setstate(std::ios_base::failbit);
+//    smpl.updateModel();
+//    std::cout.clear();
+
+//    // OpenGL - Initialization
+//    std::cout << "Initializing.." << std::endl;
+//    char *myargv [1];
+//    int myargc=1;
+//    myargv[0]=strdup ("Window");
+//    glutInit(&myargc, myargv);
+//    glutInitDisplayMode(GLUT_DOUBLE); // glEndList();Enable double buffered mode
+//    glutInitWindowSize(renderWidth, renderHeight);   // Set the window's initial width & height
+//    glutInitWindowPosition(50, 50); // Position the window's initial top-left corner
+//    glutCreateWindow("Window");          // Create window with the given title
+//    //glutHideWindow();
+
+
+//    glEnable(GL_LIGHTING);
+
+//    glEnable( GL_DEPTH_TEST );
+//    glShadeModel( GL_SMOOTH );
+//    glEnable( GL_CULL_FACE );
+//    glClearColor( 1, 1, 1, 1 );
+
+//    glewInit();
+
+
+//    struct Vertex{
+//      GLfloat position[3];
+//      GLfloat normal[3];
+//      GLfloat texcoord[2];
+//    };
+//    std::vector<Vertex> vertexdata;
+////    Vertex a,b,c,d;
+////    a.position[0] = 0;
+////    a.position[1] = 0;
+////    a.position[2] = 0;
+////    b.position[0] = -1;
+////    b.position[1] = -1;
+////    b.position[2] = 0;
+////    c.position[0] = 1;
+////    c.position[1] = -1;
+////    c.position[2] = 0;
+////    d.position[0] = 1.5;
+////    d.position[1] = 1.5;
+////    d.position[2] = 0;
+////    vertexdata.push_back(a);
+////    vertexdata.push_back(b);
+////    vertexdata.push_back(c);
+////    vertexdata.push_back(d);
+
+//    // Iterate v
+//    for(int i=0; i<smpl.mVTemp2.rows(); i++){
+//        Vertex v;
+//        for(int j=0; j<smpl.mVTemp2.cols(); j++){
+//            v.position[j] = smpl.mVTemp2(i,j);
+//            v.normal[j] = 1;
+//        }
+//        vertexdata.push_back(v);
+//    }
+
+//    std::vector<GLushort> indexdata;
+
+//    // Iterate f
+//    for(int i=0; i<smpl.mF.rows(); i++){
+//        for(int j=0; j<smpl.mF.cols(); j++){
+//            indexdata.push_back(smpl.mF(i,j));
+//        }
+//    }
+
+//    // Create and bind a VAO
+//    GLuint vao;
+//    glGenVertexArrays(1, &vao);
+//    glBindVertexArray(vao);
+
+//    // Create and bind a BO for vertex data
+//    GLuint vbuffer;
+//    glGenBuffers(1, &vbuffer);
+//    glBindBuffer(GL_ARRAY_BUFFER, vbuffer);
+
+//    // copy data into the buffer object
+//    glBufferData(GL_ARRAY_BUFFER, vertexdata.size() * sizeof(Vertex), &vertexdata[0], GL_STATIC_DRAW);
+
+//    // set up vertex attributes
+//    glEnableVertexAttribArray(0);
+//    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position)); // vertices
+//    glEnableVertexAttribArray(1);
+//    glVertexAttribPointer(1, 3, GL_FLOAT, GL_TRUE, sizeof(Vertex), (void*)offsetof(Vertex, normal)); // normals
+//    glEnableVertexAttribArray(2);
+//    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, texcoord)); // normals
+
+//    // Create and bind a BO for index data
+//    GLuint ibuffer;
+//    glGenBuffers(1, &ibuffer);
+//    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuffer);
+
+//    // copy data into the buffer object
+//    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexdata.size() * sizeof(GLushort), &indexdata[0], GL_STATIC_DRAW);
+
+//    glBindVertexArray(0);
+
+
+//    while(1){
+//        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+//        glEnable(GL_LIGHTING);
+//        glShadeModel( GL_SMOOTH );
+//        glEnable( GL_TEXTURE_2D );
+
+//        glViewport( 0, 0, (float)renderWidth/1, (float)renderHeight/1. );
+//        glMatrixMode( GL_PROJECTION );
+//        glLoadIdentity();
+//        gluPerspective( 60, (float)renderWidth/(float)renderHeight, 0.1, 10000. );
+//        glMatrixMode( GL_MODELVIEW );
+//        glLoadIdentity();
+
+//        //glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+//        glPushMatrix();
+//        glTranslatef(0,-0.5,-0.5);
+////        glBindVertexArray(vao);
+////        glDrawElements(GL_TRIANGLES, indexdata.size(), GL_UNSIGNED_SHORT,     (void*)0);
+
+//        for(int i=0; i<smpl.mF.rows(); i++){
+//            glBegin(GL_POLYGON);
+//            for(int j=0; j<smpl.mF.cols(); j++){
+//                indexdata.push_back(smpl.mF(i,j)+1);
+
+//            }
+//            glVertex3fv((const GLfloat*)&vertexdata[smpl.mF(i,0)].position);
+//            glNormal3fv((const GLfloat*)&vertexdata[smpl.mF(i,0)].normal);
+//            glVertex3fv((const GLfloat*)&vertexdata[smpl.mF(i,1)].position);
+//            glNormal3fv((const GLfloat*)&vertexdata[smpl.mF(i,1)].normal);
+//            glVertex3fv((const GLfloat*)&vertexdata[smpl.mF(i,2)].position);
+//            glNormal3fv((const GLfloat*)&vertexdata[smpl.mF(i,2)].normal);
+
+//            glEnd();
+//        }
+
+//        glPopMatrix();
+
+//        glutSwapBuffers();
+//        glutPostRedisplay();
+//        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+//        glutMainLoopEvent();
+//    }
+
+//    //        for(int i=0; i<smpl.mF.rows(); i++){
+//    //            glBegin(GL_POLYGON);
+//    //            for(int j=0; j<smpl.mF.cols(); j++){
+//    //                indexdata.push_back(smpl.mF(i,j)+1);
+
+//    //            }
+//    //            glVertex3fv((const GLfloat*)&vertexdata[smpl.mF(i,0)].position);
+//    //            glVertex3fv((const GLfloat*)&vertexdata[smpl.mF(i,1)].position);
+//    //            glVertex3fv((const GLfloat*)&vertexdata[smpl.mF(i,2)].position);
+//    //            glEnd();
+//    //        }
+
+//}
+
 int main(int argc, char *argv[])
 {
     //testTensor();
     //exit(-1);
-    bool active = true;
+    bool active = false;
     bool track = false;
     bool joints = false;
 
@@ -372,14 +538,18 @@ int main(int argc, char *argv[])
         trackManager.addTrack("LLEG_Z",M_PI);
     }
 
+    begin = std::chrono::steady_clock::now();
     op::WRender3D render;
     render.initializationOnThread();
+    end= std::chrono::steady_clock::now();
+    std::cout << "Time difference Setup = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. <<std::endl;
     std::shared_ptr<op::WObject> wObject1 = std::make_shared<op::WObject>();
     //wObject1->loadOBJFile("/home/raaj/project/","hello_smpl.obj","");
     wObject1->loadEigenData(smpl.mVTemp2, smpl.mF);
     wObject1->print();
     render.addObject(wObject1);
-    wObject1->rebuild(op::WObject::RENDER_WIREFRAME);
+    //wObject1->rebuild(op::WObject::RENDER_NORMAL);
+    //wObject1->rebuildVArr(op::WObject::RENDER_NORMAL);
 
     std::shared_ptr<op::WObject> wObject2 = std::make_shared<op::WObject>();
     if(joints){
@@ -409,10 +579,10 @@ int main(int argc, char *argv[])
             smpl.setPose(SMPL::NECK, Eigen::Vector3f(0, 0, M_PI/180. * currAng));
             smpl.setShape(SMPL::S3, currB);
 
-            smpl.updateModel();
             begin = std::chrono::steady_clock::now();
+            smpl.updateModel();
             wObject1->loadEigenData(smpl.mVTemp2, smpl.mF);
-            wObject1->rebuild(op::WObject::RENDER_NORMAL);
+            wObject1->rebuildVArr(op::WObject::RENDER_NORMAL);
             end= std::chrono::steady_clock::now();
             std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. <<std::endl;
         }

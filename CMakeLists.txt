@@ -25,6 +25,7 @@ find_package(OpenCV REQUIRED)
 find_package(GLUT REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(GLEW REQUIRED)
 
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
@@ -34,6 +35,7 @@ include_directories(
   ${GLUT_INCLUDE_DIRS}
   ${OPENGL_INCLUDE_DIR}
   ${EIGEN3_INCLUDE_DIR}
+  ${GLEW_INCLUDE_DIRS}
 )
 file(GLOB test_SRC
     "renderer.cpp"
@@ -53,6 +55,7 @@ target_link_libraries(
   ${OpenCV_LIBRARIES}
   ${GLUT_LIBRARY}
   ${OPENGL_LIBRARIES}
+  ${GLEW_LIBRARIES}
   jsoncpp
 )
 

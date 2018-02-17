@@ -36,6 +36,7 @@ include_directories(
   ${OPENGL_INCLUDE_DIR}
   ${EIGEN3_INCLUDE_DIR}
   ${GLEW_INCLUDE_DIRS}
+  "/usr/include/GLFW/"
 )
 file(GLOB test_SRC
     "renderer.cpp"
@@ -43,6 +44,7 @@ file(GLOB test_SRC
     "test.cpp"
     "tensor.h"
     "trackbar.h"
+    "smpl.h"
     "smplify_public/code/*.py"
     "smplify_public/code/smpl_webuser/*.py"
     "smplify_public/code/smpl_webuser/hello_world/*.py"
@@ -57,5 +59,16 @@ target_link_libraries(
   ${OPENGL_LIBRARIES}
   ${GLEW_LIBRARIES}
   jsoncpp
+  "/usr/lib/x86_64-linux-gnu/libglfw.so;/usr/lib/x86_64-linux-gnu/libglfw.so.3;/usr/lib/x86_64-linux-gnu/libglfw.so.3.1"
 )
 
+add_executable(test2 "test2.cpp")
+target_link_libraries(
+  test2
+  ${OpenCV_LIBRARIES}
+  ${GLUT_LIBRARY}
+  ${OPENGL_LIBRARIES}
+  ${GLEW_LIBRARIES}
+  jsoncpp
+  "/usr/lib/x86_64-linux-gnu/libglfw.so;/usr/lib/x86_64-linux-gnu/libglfw.so.3;/usr/lib/x86_64-linux-gnu/libglfw.so.3.1"
+)

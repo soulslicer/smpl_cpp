@@ -26,11 +26,42 @@ using namespace std;
 #include <mutex>              // std::mutex, std::unique_lock
 #include <condition_variable> // std::condition_variable
 
+void findContoursCV(cv::Mat& img, cv::OutputArrayOfArrays _contours){
+    IplImage* iplImg = new IplImage(img);
+    CvMemStorage *storage = cvCreateMemStorage(0);
+    CvSeq *_ccontours = cvCreateSeq(0, sizeof(CvSeq), sizeof(CvPoint), storage);
+    cvFindContours(iplImg, storage, &_ccontours, sizeof(CvContour), CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
+    delete iplImg;
+
+    if( !_ccontours )
+    {
+        _contours.clear();
+        return;
+    }
+    cv::Seq<CvSeq*> all_contours(cvTreeToNodeSeq( _ccontours, sizeof(CvSeq), storage ));
+    int i, total = (int)all_contours.size();
+    _contours.create(total, 1, 0, -1, true);
+    cv::SeqIterator<CvSeq*> it = all_contours.begin();
+    for( i = 0; i < total; i++, ++it )
+    {
+        CvSeq* c = *it;
+        ((CvContour*)c)->color = (int)i;
+        _contours.create((int)c->total, 1, CV_32SC2, i, true);
+        cv::Mat ci = _contours.getMat(i);
+        CV_Assert( ci.isContinuous() );
+        cvCvtSeqToArray(c, ci.ptr());
+    }
+
+    return;
+}
 
 class Renderer{
 public:
     int renderWidth = 640;
     int renderHeight = 480;
+    bool drawNormal = false;
+    bool drawContour = true;
+    bool drawLighting = false;
 
     const std::vector<GLfloat> LIGHT_DIFFUSE{ 1.f, 1.f, 1.f, 1.f };  // Diffuse light
     const std::vector<GLfloat> LIGHT_POSITION{ 1.f, 1.f, 1.f, 0.f };  // Infinite light location
@@ -43,7 +74,6 @@ public:
     GLuint vbuffer;
     GLuint listId;
     GLuint ibuffer;
-
 
     struct Vertex{
         GLfloat position[3];
@@ -119,11 +149,13 @@ public:
         glfwMakeContextCurrent(window_slave);
         glewInit();
 
-        glLightfv(GL_LIGHT0, GL_AMBIENT, LIGHT_DIFFUSE.data());
-        glLightfv(GL_LIGHT0, GL_DIFFUSE, LIGHT_DIFFUSE.data());
-        glLightfv(GL_LIGHT0, GL_POSITION, LIGHT_POSITION.data());
-        glEnable(GL_LIGHT0);
-        glEnable(GL_LIGHTING);
+        if(drawLighting){
+            glLightfv(GL_LIGHT0, GL_AMBIENT, LIGHT_DIFFUSE.data());
+            glLightfv(GL_LIGHT0, GL_DIFFUSE, LIGHT_DIFFUSE.data());
+            glLightfv(GL_LIGHT0, GL_POSITION, LIGHT_POSITION.data());
+            glEnable(GL_LIGHT0);
+            glEnable(GL_LIGHTING);
+        }
 
         // Create and bind a VAO
         glGenVertexArrays(1, &vao);
@@ -141,7 +173,7 @@ public:
         glEnable( GL_DEPTH_TEST );
         glShadeModel( GL_SMOOTH );
         glEnable( GL_CULL_FACE );
-        glClearColor( 1, 1, 1, 1 );
+        glClearColor( 0, 0, 0, 0 );
 
         cout << "Initialized" << endl;
     }
@@ -152,6 +184,8 @@ public:
         glEnable(GL_LIGHTING);
         glShadeModel( GL_SMOOTH );
         glEnable( GL_TEXTURE_2D );
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_MULTISAMPLE);
 
         float width = params.cameraSize.width;
         float height = params.cameraSize.height;
@@ -185,30 +219,28 @@ public:
             indexdata[r*3 + 0] = mF(r,0);
             indexdata[r*3 + 1] = mF(r,1);
             indexdata[r*3 + 2] = mF(r,2);
-
-            Vertex& v0 = vertexdata[mF(r,0)];
-            Vertex& v1 = vertexdata[mF(r,1)];
-            Vertex& v2 = vertexdata[mF(r,2)];
-            float x = (v1.position[1]-v0.position[1])*(v2.position[2]-v0.position[2])-(v1.position[2]-v0.position[2])*(v2.position[1]-v0.position[1]);
-            float y = (v1.position[2]-v0.position[2])*(v2.position[0]-v0.position[0])-(v1.position[0]-v0.position[0])*(v2.position[2]-v0.position[2]);
-            float z = (v1.position[0]-v0.position[0])*(v2.position[1]-v0.position[1])-(v1.position[1]-v0.position[1])*(v2.position[0]-v0.position[0]);
-            float length = std::sqrt( x*x + y*y + z*z );
-            x /= length;
-            y /= length;
-            z /= length;
-            for(int i=0; i<3; i++){
-                vertexdata[mF(r,i)].normal[0] = x;
-                vertexdata[mF(r,i)].normal[1] = y;
-                vertexdata[mF(r,i)].normal[2] = z;
+            if(drawNormal){
+                Vertex& v0 = vertexdata[mF(r,0)];
+                Vertex& v1 = vertexdata[mF(r,1)];
+                Vertex& v2 = vertexdata[mF(r,2)];
+                float x = (v1.position[1]-v0.position[1])*(v2.position[2]-v0.position[2])-(v1.position[2]-v0.position[2])*(v2.position[1]-v0.position[1]);
+                float y = (v1.position[2]-v0.position[2])*(v2.position[0]-v0.position[0])-(v1.position[0]-v0.position[0])*(v2.position[2]-v0.position[2]);
+                float z = (v1.position[0]-v0.position[0])*(v2.position[1]-v0.position[1])-(v1.position[1]-v0.position[1])*(v2.position[0]-v0.position[0]);
+                float length = std::sqrt( x*x + y*y + z*z );
+                x /= length;
+                y /= length;
+                z /= length;
+                for(int i=0; i<3; i++){
+                    vertexdata[mF(r,i)].normal[0] = x;
+                    vertexdata[mF(r,i)].normal[1] = y;
+                    vertexdata[mF(r,i)].normal[2] = z;
+                }
             }
         }
 
-        // SPECIAL
-        //glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-
         glEnable( GL_TEXTURE_2D );
         glEnable( GL_NORMALIZE );
-        glColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
+        glColor4f( 0.0f, 0.0f, 0.0f, 0.0f );
 
         glBindVertexArray(vao);
         glBindBuffer(GL_ARRAY_BUFFER, vbuffer);
@@ -231,17 +263,36 @@ public:
         // copy data into the buffer object
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexdata.size() * sizeof(GLushort), &indexdata[0], GL_STATIC_DRAW);
 
-        // Draw elem
+        // Set Transforms
         glPushMatrix();
         glTranslatef(-params.tx,-params.ty,-params.tz);
         glRotatef(params.rz, 0.0, 0.0, 1.0);
         glRotatef(params.ry, 0.0, 1.0, 0.0);
         glRotatef(params.rx+180, 1.0, 0.0, 0.0);
-        glBindVertexArray(0);
-        glBindVertexArray(vao);
-        glDrawElements(GL_TRIANGLES, indexdata.size(), GL_UNSIGNED_SHORT, (void*)0);
-        glPopMatrix();
 
+        // Draw
+        if(drawContour){
+            glDisable(GL_LIGHTING);
+            glPolygonMode(GL_BACK, GL_LINE);
+            glLineWidth(1);
+            glCullFace(GL_FRONT);
+            glColor3f(1., 1., 1.);
+            glBindVertexArray(0);
+            glBindVertexArray(vao);
+            glDrawElements(GL_TRIANGLES, indexdata.size(), GL_UNSIGNED_SHORT, (void*)0);
+            glCullFace(GL_BACK);
+            glPolygonMode(GL_BACK, GL_FILL);
+            glEnable(GL_LIGHTING);
+            glBindVertexArray(0);
+            glBindVertexArray(vao);
+            glDrawElements(GL_TRIANGLES, indexdata.size(), GL_UNSIGNED_SHORT, (void*)0);
+        }else{
+            glBindVertexArray(0);
+            glBindVertexArray(vao);
+            glDrawElements(GL_TRIANGLES, indexdata.size(), GL_UNSIGNED_SHORT, (void*)0);
+        }
+
+        glPopMatrix();
         glDisable( GL_NORMALIZE );
         glDisable( GL_TEXTURE_2D );
 
@@ -254,11 +305,11 @@ public:
         cv::Mat out = m(rect);
 
         // My Test
-        for(auto v : vertexdata){
-            Eigen::Vector3f point(v.position[0],v.position[1],v.position[2]);
-            cv::Point2i pixel = transformAndProject(point);
-            cv::circle(out, pixel, 2, cv::Scalar(255,0,0));
-        }
+        //for(auto v : vertexdata){
+        //    Eigen::Vector3f point(v.position[0],v.position[1],v.position[2]);
+        //    cv::Point2i pixel = transformAndProject(point);
+        //    cv::circle(out, pixel, 2, cv::Scalar(255,0,0));
+        //}
 
         glfwSwapBuffers(window_slave);
         return out.clone();
@@ -266,112 +317,44 @@ public:
 
 };
 
-int test(){
-    glfwInit();
-    //glewInit();
-
-    // Load SMPL
-    SMPL smpl;
-    smpl.loadModelFromJSONFile(std::string(CMAKE_CURRENT_SOURCE_DIR) + "/model.json");
-    std::cout.setstate(std::ios_base::failbit);
-    smpl.updateModel();
-    std::cout.clear();
-
-    // Single thread
-    Renderer r;
-    r.startOnThread("win");
-    Renderer::Params params;
-    params.cameraSize = cv::Size(640,480);
-    params.fl = 500.;
-    params.cx = params.cameraSize.width/2-5;
-    params.cy = params.cameraSize.height/2+5;
-    params.tx = 0.2;
-    params.ty = 0.2;
-    params.tz = 2.5;
-    params.rx = 20;
-    params.ry = 20;
-    params.rz = 20;
-    r.setCameraParams(params);
-    cv::Mat out = r.draw(smpl.mVTemp2, smpl.mF);
-
-    //    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-    //    for(int i=0; i<50; i++){
-    //        r.draw(smpl.mVTemp2, smpl.mF);
-
-    //        cv::Mat out = r.draw(smpl.mVTemp2, smpl.mF);
-    //        cv::imshow("win",out);
-    //        cv::waitKey(15);
-
-    //        cout << i << endl;
-    //    }
-    //    std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
-    //    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. << " ms" << std::endl;
-
-    while(1){
-        cv::imshow("win",out);
-        cv::waitKey(15);
-    }
-
-    //    RendererManager manager;
-    //    int totalThreads = 4;
-    //    int totalOps = 1000;
-    //    for(int i=0; i<totalThreads; i++){
-    //        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    //        manager.addThread();
-    //    }
-
-    //    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-    //    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-    //    for(int i=0; i<totalOps/totalThreads; i++){
-    //        manager.signal();
-    //        manager.wait();
-    //        cout << i << endl;
-    //    }
-    //    cout << "**DONE**" << endl;
-    //    std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
-    //    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. << " ms" << std::endl;
-
-    //    manager.join();
-}
-
 class RendererManager{
-public:
 
+private:
     std::vector<std::thread> rendererThreads;
     std::vector<bool> renderThreadCompletes;
+    std::mutex sendMtx, recvMtx, writebackLock;
+    std::condition_variable sendCv;
+    std::chrono::steady_clock::time_point begin, end;
+
+public:
+    typedef std::pair<Eigen::MatrixXf*,Eigen::MatrixXf*> RenderData;
+    std::vector<RenderData> renderDatas;
     std::vector<Renderer::Params> renderParams;
     std::vector<cv::Mat> renderOutputs;
-    //std::vector<std::unique_ptr<std::condition_variable>> conditions;
-
-    std::mutex sendMtx, recvMtx, boolLock;
-    std::condition_variable sendCv;
-
-    static std::string printBool(std::vector<bool>& bools){
-        std::string xx;
-        for(int i=0; i<bools.size(); i++){
-            if(bools[i]) xx += "1"; else xx+="0";
-        }
-        return xx;
-    }
+    std::vector<std::vector<cv::Point>> renderContours;
 
     static void thread_worker(int id, RendererManager* manager){
         Renderer r;
         r.startOnThread(std::to_string(id));
 
         while(1){
-            //std::this_thread::sleep_for(std::chrono::milliseconds(10));
             std::unique_lock<std::mutex> lck(manager->sendMtx);
             manager->sendCv.wait(lck);
             lck.unlock();
-            //r.draw();
 
-            //r.setCameraParams(manager->renderParams[id]);
+            // Work
+            r.setCameraParams(manager->renderParams[id]);
+            cv::Mat out = r.draw(*manager->renderDatas[id].first,*manager->renderDatas[id].second);
+            cv::cvtColor(out, out, CV_BGRA2GRAY);
+            std::vector<std::vector<cv::Point>> contours;
+            findContoursCV(out, contours);
 
-            cout << "AA" << endl;
-            manager->boolLock.lock();
+            manager->writebackLock.lock();
+            manager->renderOutputs[id] = out;
+            manager->renderContours[id] = contours[0];
             manager->renderThreadCompletes[id] = true;
             bool done = (std::find(std::begin(manager->renderThreadCompletes), std::end(manager->renderThreadCompletes), false) == std::end(manager->renderThreadCompletes));
-            manager->boolLock.unlock();
+            manager->writebackLock.unlock();
             if(done)
                 manager->recvMtx.unlock();
         }
@@ -382,14 +365,18 @@ public:
     }
 
     void addThread(){
+        renderContours.push_back(std::vector<cv::Point>());
+        renderDatas.push_back(RenderData());
+        renderOutputs.push_back(cv::Mat());
+        renderParams.push_back(Renderer::Params());
         renderThreadCompletes.push_back(false);
         rendererThreads.push_back(std::thread(RendererManager::thread_worker, rendererThreads.size(), this));
     }
 
     void signal(){
-        boolLock.lock();
+        writebackLock.lock();
         for(auto i : renderThreadCompletes) i = 0;
-        boolLock.unlock();
+        writebackLock.unlock();
         recvMtx.lock();
         std::unique_lock<std::mutex> sendLck(sendMtx);
         sendCv.notify_all();
@@ -409,6 +396,84 @@ public:
     }
 
 };
+
+int test(){
+    glfwInit();
+    //glewInit();
+
+    // Load SMPL
+    SMPL smpl;
+    smpl.loadModelFromJSONFile(std::string(CMAKE_CURRENT_SOURCE_DIR) + "/model.json");
+    std::cout.setstate(std::ios_base::failbit);
+    smpl.updateModel();
+    std::cout.clear();
+
+    // Params
+    int totalThreads = 10;
+    int totalOps = 1000;
+    std::chrono::steady_clock::time_point begin, end;
+    Renderer::Params params;
+    params.cameraSize = cv::Size(640,480);
+    params.fl = 500.;
+    params.cx = params.cameraSize.width/2-5;
+    params.cy = params.cameraSize.height/2+5;
+    params.tx = 0.2;
+    params.ty = 0.2;
+    params.tz = 2.5;
+    params.rx = 20;
+    params.ry = 20;
+    params.rz = 20;
+
+//    // Single thread
+//    Renderer r;
+//    r.startOnThread("win");
+//    r.setCameraParams(params);
+//    cv::Mat out = r.draw(smpl.mVTemp2, smpl.mF);
+//    begin = std::chrono::steady_clock::now();
+//    for(int i=0; i<1; i++){
+//        r.draw(smpl.mVTemp2, smpl.mF);
+//    }
+//    end= std::chrono::steady_clock::now();
+//    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. << " ms" << std::endl;
+
+//    // Contour
+//    begin = std::chrono::steady_clock::now();
+//    cv::Mat convert;
+//    cv::cvtColor(out, out, CV_BGRA2GRAY);
+//    std::vector<std::vector<cv::Point>> contours;
+//    findContoursCV(out, contours);
+//    end= std::chrono::steady_clock::now();
+//    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. << " ms" << std::endl;
+//    while(1){
+//        cv::imshow("im", out);
+//        cv::waitKey(15);
+//    }
+
+    // Start Threads
+    RendererManager manager;
+    for(int i=0; i<totalThreads; i++){
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        manager.addThread();
+    }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    begin = std::chrono::steady_clock::now();
+    for(int i=0; i<totalOps/totalThreads; i++){
+        // Set data
+        for(int i=0; i<totalThreads; i++){
+            manager.renderParams[i] = params;
+            manager.renderDatas[i] = RendererManager::RenderData(&smpl.mVTemp2, &smpl.mF);
+        }
+        manager.signal();
+        manager.wait();
+    }
+    cout << "**DONE**" << endl;
+    end= std::chrono::steady_clock::now();
+    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. << " ms" << std::endl;
+    manager.join();
+}
+
+
 
 int main(int argc, char *argv[])
 {

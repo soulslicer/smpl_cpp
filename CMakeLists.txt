@@ -45,6 +45,8 @@ file(GLOB test_SRC
     "tensor.h"
     "trackbar.h"
     "smpl.h"
+    "pf.h"
+    "pf.cpp"
     "smplify_public/code/*.py"
     "smplify_public/code/smpl_webuser/*.py"
     "smplify_public/code/smpl_webuser/hello_world/*.py"
@@ -59,10 +61,10 @@ target_link_libraries(
   ${OPENGL_LIBRARIES}
   ${GLEW_LIBRARIES}
   jsoncpp
-  "/usr/lib/x86_64-linux-gnu/libglfw.so.3.0"
+  "/usr/lib/x86_64-linux-gnu/libglfw.so.3.1"
 )
 
-add_executable(test2 "test2.cpp")
+add_executable(test2 "test2.cpp" "pf.h" "pf.cpp")
 target_link_libraries(
   test2
   ${OpenCV_LIBRARIES}
@@ -70,5 +72,5 @@ target_link_libraries(
   ${OPENGL_LIBRARIES}
   ${GLEW_LIBRARIES}
   jsoncpp
-  "/usr/lib/x86_64-linux-gnu/libglfw.so.3.0"
+  "/usr/lib/x86_64-linux-gnu/libglfw.so.3.1"
 )

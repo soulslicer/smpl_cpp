@@ -59,7 +59,7 @@ target_link_libraries(
   ${OPENGL_LIBRARIES}
   ${GLEW_LIBRARIES}
   jsoncpp
-  "/usr/lib/x86_64-linux-gnu/libglfw.so;/usr/lib/x86_64-linux-gnu/libglfw.so.3;/usr/lib/x86_64-linux-gnu/libglfw.so.3.1"
+  "/usr/lib/x86_64-linux-gnu/libglfw.so.3.0"
 )
 
 add_executable(test2 "test2.cpp")
@@ -70,5 +70,5 @@ target_link_libraries(
   ${OPENGL_LIBRARIES}
   ${GLEW_LIBRARIES}
   jsoncpp
-  "/usr/lib/x86_64-linux-gnu/libglfw.so;/usr/lib/x86_64-linux-gnu/libglfw.so.3;/usr/lib/x86_64-linux-gnu/libglfw.so.3.1"
+  "/usr/lib/x86_64-linux-gnu/libglfw.so.3.0"
 )

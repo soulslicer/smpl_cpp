@@ -284,3 +284,108 @@ int main(int argc, char* argv[])
     return 0;
 }
 
+//class ThreadManager{
+//public:
+//    std::vector<std::thread> threads;
+//    std::vector<bool> threadCompletes;
+
+//    std::mutex sendMtx, boolLock, recvMtx;
+//    std::condition_variable sendCv;
+
+//    static std::string printBool(std::vector<bool>& bools){
+//        std::string xx;
+//        for(int i=0; i<bools.size(); i++){
+//            if(bools[i]) xx += "1"; else xx+="0";
+//        }
+//        return xx;
+//    }
+
+//    static void thread_worker(int id, ThreadManager* manager){
+
+//        std::mutex internal;
+
+//        while(1){
+//            // Wait for main thread signal
+//            std::unique_lock<std::mutex> lck(manager->sendMtx);
+//            manager->boolLock.lock(); cout << "Thread Wait: " << id << endl; manager->boolLock.unlock();
+//            manager->sendCv.wait(lck);
+//            lck.unlock();
+
+//            manager->boolLock.lock(); cout << "Start ParOp..: " << id << endl; manager->boolLock.unlock();
+//            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+//            manager->boolLock.lock();
+//            manager->threadCompletes[id] = true;
+//            bool done = (std::find(std::begin(manager->threadCompletes), std::end(manager->threadCompletes), false) == std::end(manager->threadCompletes));
+//            cout << "Job Complete: " << id << " " << printBool(manager->threadCompletes) << endl;
+//            manager->boolLock.unlock();
+
+//            if(done){
+//                cout << "All Done" << endl;
+//                done = false;
+//                //manager->sendCv.notify_one();
+//                manager->recvMtx.unlock();
+//            }
+//        }
+//    }
+
+//    ThreadManager(){
+
+//    }
+
+//    void addThread(){
+//        threadCompletes.push_back(false);
+//        threads.push_back(std::thread(ThreadManager::thread_worker, threads.size(), this));
+//    }
+
+//    void signal(){
+//        boolLock.lock();
+//        for(auto i : threadCompletes) i = 0;
+//        boolLock.unlock();
+//        std::unique_lock<std::mutex> sendLck(sendMtx);
+//        //anotherMutex.lock();
+//        cout << "Notifying.." << endl;
+//        sendCv.notify_all();
+//        sendLck.unlock();
+//    }
+
+//    void wait(){
+//        recvMtx.lock();
+//        recvMtx.unlock();
+//        //std::unique_lock<std::mutex> sendLck(sendMtx);
+//        //sendCv.wait(sendLck);
+
+//        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+//        cout << "Ready" << endl;
+
+//    }
+
+//    void join(){
+//        for (int i = 0; i < threads.size(); ++i) {
+//            threads[i].join();
+//        }
+//    }
+//};
+
+
+//void test2(){
+
+//    ThreadManager manager;
+//    for(int i=0; i<4; i++){
+//        manager.addThread();
+//    }
+
+//    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+//    for(int i=0; i<100; i++){
+//        manager.signal();
+//        manager.wait();
+//        cout << "\nComplete: " << i << endl << endl;
+//        //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+//    }
+
+//    cout << "ALL DONE" << endl;
+
+//    manager.join();
+
+//}

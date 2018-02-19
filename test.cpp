@@ -22,69 +22,120 @@ using namespace std;
 
 #include <GLFW/glfw3.h>
 
-const int renderWidth = 640;
-const int renderHeight = 480;
+#include <thread>             // std::thread
+#include <mutex>              // std::mutex, std::unique_lock
+#include <condition_variable> // std::condition_variable
+
 
 class Renderer{
 public:
+    int renderWidth = 640;
+    int renderHeight = 480;
+
+    const std::vector<GLfloat> LIGHT_DIFFUSE{ 1.f, 1.f, 1.f, 1.f };  // Diffuse light
+    const std::vector<GLfloat> LIGHT_POSITION{ 1.f, 1.f, 1.f, 0.f };  // Infinite light location
+    const std::vector<GLfloat> COLOR_DIFFUSE{ 0.5f, 0.5f, 0.5f, 1.f };
+
     GLFWwindow* window_slave;
     GLuint fb, rbc, rbd, pbo;
 
+    GLuint vao;
+    GLuint vbuffer;
+    GLuint listId;
+    GLuint ibuffer;
+
+
     struct Vertex{
-      GLfloat position[3];
-      GLfloat normal[3];
-      GLfloat texcoord[2];
+        GLfloat position[3];
+        GLfloat normal[3];
+        GLfloat texcoord[2];
     };
 
-    bool createFrameBuffers() //for worker thread
-    {
-        bool ret;
+    struct Params{
+        cv::Size cameraSize;
+        float fl, cx, cy;
+        float tx, ty, tz, rx, ry, rz;
+    };
 
-        glGenFramebuffers(1, &fb);
-        glBindFramebuffer(GL_FRAMEBUFFER, fb);
-        glGenRenderbuffers(1, &rbc);
-        glBindRenderbuffer(GL_RENDERBUFFER, rbc);
-        glRenderbufferStorageMultisample(GL_RENDERBUFFER, 2, GL_RGBA8, renderWidth, renderHeight);
-        glGenRenderbuffers(1, &rbd);
-        glBindRenderbuffer(GL_RENDERBUFFER, rbd);
-        glRenderbufferStorageMultisample(GL_RENDERBUFFER, 2, GL_DEPTH24_STENCIL8, renderWidth, renderHeight);
-
-        glBindRenderbuffer(GL_RENDERBUFFER, rbc);
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, rbc);
-        glBindRenderbuffer(GL_RENDERBUFFER, rbd);
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbd);
-
-        glGenBuffers(1,&pbo);
-        glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
-        glBufferData(GL_PIXEL_PACK_BUFFER, renderWidth*renderHeight*4, NULL, GL_DYNAMIC_READ);
-
-        glFlush();
-
-        return ret;
-    }
+    Params params;
+    Eigen::Matrix4f transformMatrix;
 
     Renderer(){
+    }
 
+    Eigen::Matrix4f getTransformMatrix(float roll, float pitch, float yaw, float x, float y, float z){
+        Eigen::AngleAxisf rollAngle(roll / 180.0 * M_PI, Eigen::Vector3f::UnitX());
+        Eigen::AngleAxisf pitchAngle(pitch / 180.0 * M_PI, Eigen::Vector3f::UnitY());
+        Eigen::AngleAxisf yawAngle(yaw / 180.0 * M_PI, Eigen::Vector3f::UnitZ());
+        Eigen::Quaternion<float> q = yawAngle * pitchAngle * rollAngle;
+
+        Eigen::Matrix3f rotationMatrix = q.matrix();
+        Eigen::Matrix4f transformMatrix = Eigen::Matrix4f::Identity();
+        transformMatrix(0,0) = rotationMatrix(0,0);
+        transformMatrix(0,1) = rotationMatrix(0,1);
+        transformMatrix(0,2) = rotationMatrix(0,2);
+        transformMatrix(0,3) = x;
+        transformMatrix(1,0) = rotationMatrix(1,0);
+        transformMatrix(1,1) = rotationMatrix(1,1);
+        transformMatrix(1,2) = rotationMatrix(1,2);
+        transformMatrix(1,3) = y;
+        transformMatrix(2,0) = rotationMatrix(2,0);
+        transformMatrix(2,1) = rotationMatrix(2,1);
+        transformMatrix(2,2) = rotationMatrix(2,2);
+        transformMatrix(2,3) = z;
+        transformMatrix(3,0) = 0;
+        transformMatrix(3,1) = 0;
+        transformMatrix(3,2) = 0;
+        transformMatrix(3,3) = 1;
+        return transformMatrix;
+    }
+
+    cv::Point2i transformAndProject(Eigen::Vector3f point){
+        Eigen::Vector3f transformedPoint = point;
+        transformedPoint(0) = (point(0)*transformMatrix(0,0) + point(1)*transformMatrix(0,1) + point(2)*transformMatrix(0,2) + transformMatrix(0,3));
+        transformedPoint(1) = (point(0)*transformMatrix(1,0) + point(1)*transformMatrix(1,1) + point(2)*transformMatrix(1,2) + transformMatrix(1,3));
+        transformedPoint(2) = (point(0)*transformMatrix(2,0) + point(1)*transformMatrix(2,1) + point(2)*transformMatrix(2,2) + transformMatrix(2,3));
+        cv::Point2i pixel;
+        pixel.x =(int)(((params.fl*transformedPoint(0))/transformedPoint(2)) + params.cx);
+        pixel.y =(int)(((params.fl*transformedPoint(1))/transformedPoint(2)) + params.cy);
+        return pixel;
+    }
+
+    void setCameraParams(Params params){
+        this->params = params;
+        transformMatrix = getTransformMatrix(params.rx,params.ry,params.rz,params.tx,params.ty,params.tz);
+        if(params.cameraSize.width != renderWidth || params.cameraSize.height != renderHeight){
+            renderWidth = params.cameraSize.width;
+            renderHeight = params.cameraSize.height;
+            glfwSetWindowSize(window_slave, renderWidth, renderHeight);
+        }
     }
 
     void startOnThread(std::string name){
         // OpenGL - Initialization
         std::cout << "Initializing.." << std::endl;
-        char *myargv [1];
-        int myargc=1;
-        if(name == "0"){
-            myargv[0]=strdup ("GLUT");
-            glutInit(&myargc, myargv);
-            glutInitDisplayMode(GLUT_DOUBLE); // glEndList();Enable double buffered mode
-            glutInitWindowSize(renderWidth, renderHeight);   // Set the window's initial width & height
-            glutInitWindowPosition(50, 50); // Position the window's initial top-left corner
-        }
-        glutCreateWindow(name.c_str());          // Create window with the given title
-        glutHideWindow();
+        glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
+        window_slave = glfwCreateWindow(renderWidth, renderHeight, name.c_str(), 0, 0);
+        glfwMakeContextCurrent(window_slave);
         glewInit();
-        glfwInit();
 
-        //initWindow(window_slave,true);
+        glLightfv(GL_LIGHT0, GL_AMBIENT, LIGHT_DIFFUSE.data());
+        glLightfv(GL_LIGHT0, GL_DIFFUSE, LIGHT_DIFFUSE.data());
+        glLightfv(GL_LIGHT0, GL_POSITION, LIGHT_POSITION.data());
+        glEnable(GL_LIGHT0);
+        glEnable(GL_LIGHTING);
+
+        // Create and bind a VAO
+        glGenVertexArrays(1, &vao);
+        glBindVertexArray(vao);
+
+        // Create and bind a BO for vertex data
+        glGenBuffers(1, &vbuffer);
+        glBindBuffer(GL_ARRAY_BUFFER, vbuffer);
+
+        // Create and bind a BO for vertex data
+        glGenBuffers(1, &ibuffer);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuffer);
 
         glEnable(GL_LIGHTING);
         glEnable( GL_DEPTH_TEST );
@@ -92,97 +143,277 @@ public:
         glEnable( GL_CULL_FACE );
         glClearColor( 1, 1, 1, 1 );
 
-        //createFrameBuffers();
-        cout << "ok" << endl;
+        cout << "Initialized" << endl;
     }
 
-    cv::Mat draw(){
-        glBindFramebuffer(GL_FRAMEBUFFER,fb);
-
+    cv::Mat draw(Eigen::MatrixXf mV, Eigen::MatrixXf mF){
         glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
         glFlush();
         glEnable(GL_LIGHTING);
         glShadeModel( GL_SMOOTH );
         glEnable( GL_TEXTURE_2D );
 
-        glViewport( 0, 0, (float)renderWidth/1, (float)renderHeight/1. );
+        float width = params.cameraSize.width;
+        float height = params.cameraSize.height;
+        float fx = params.fl;
+        float cx = params.cx;
+        float fy = params.fl;
+        float cy = params.cy;
+        float xs = ((width/2)-cx);
+        float ys = ((height/2)-cy);
+        float fovy = (180.0 / M_PI) * (atan2(height/2, fy)) * 2;
+
+        xs = xs;
+        ys = ys;
+        glViewport(xs, ys, (float)renderWidth/1, (float)renderHeight/1. );
         glMatrixMode( GL_PROJECTION );
         glLoadIdentity();
-        gluPerspective( 60, (float)renderWidth/(float)renderHeight, 0.1, 10000. );
+        gluPerspective( fovy, (float)width/(float)height, 0.1, 100. );
         glMatrixMode( GL_MODELVIEW );
         glLoadIdentity();
 
-        // Draw?
+        std::vector<Vertex> vertexdata(mV.rows());
+        for(int r=0; r<mV.rows(); r++){
+            Vertex& v = vertexdata[r];
+            for(int c=0; c<mV.cols(); c++){
+                v.position[c] = mV(r,c);
+            }
+        }
+
+        std::vector<GLushort> indexdata(mF.rows()*3);
+        for(int r=0; r<mF.rows(); r++){
+            indexdata[r*3 + 0] = mF(r,0);
+            indexdata[r*3 + 1] = mF(r,1);
+            indexdata[r*3 + 2] = mF(r,2);
+
+            Vertex& v0 = vertexdata[mF(r,0)];
+            Vertex& v1 = vertexdata[mF(r,1)];
+            Vertex& v2 = vertexdata[mF(r,2)];
+            float x = (v1.position[1]-v0.position[1])*(v2.position[2]-v0.position[2])-(v1.position[2]-v0.position[2])*(v2.position[1]-v0.position[1]);
+            float y = (v1.position[2]-v0.position[2])*(v2.position[0]-v0.position[0])-(v1.position[0]-v0.position[0])*(v2.position[2]-v0.position[2]);
+            float z = (v1.position[0]-v0.position[0])*(v2.position[1]-v0.position[1])-(v1.position[1]-v0.position[1])*(v2.position[0]-v0.position[0]);
+            float length = std::sqrt( x*x + y*y + z*z );
+            x /= length;
+            y /= length;
+            z /= length;
+            for(int i=0; i<3; i++){
+                vertexdata[mF(r,i)].normal[0] = x;
+                vertexdata[mF(r,i)].normal[1] = y;
+                vertexdata[mF(r,i)].normal[2] = z;
+            }
+        }
+
+        // SPECIAL
+        //glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+
+        glEnable( GL_TEXTURE_2D );
+        glEnable( GL_NORMALIZE );
+        glColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
+
+        glBindVertexArray(vao);
+        glBindBuffer(GL_ARRAY_BUFFER, vbuffer);
+
+        // copy data into the buffer object
+        glBufferData(GL_ARRAY_BUFFER, vertexdata.size() * sizeof(Vertex), &vertexdata[0], GL_STATIC_DRAW);
+
+        // set up vertex attributes
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glVertexPointer(3, GL_FLOAT, sizeof(Vertex), (void*)offsetof(Vertex, position)); // vertices
+        glEnableClientState(GL_NORMAL_ARRAY);
+        glNormalPointer(GL_FLOAT, sizeof(Vertex), (void*)offsetof(Vertex, normal)); // normals
+        glClientActiveTexture(GL_TEXTURE0);
+        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+        glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex), (void*)offsetof(Vertex, texcoord)); // normal
+
+        // Create and bind a BO for index data
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuffer);
+
+        // copy data into the buffer object
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexdata.size() * sizeof(GLushort), &indexdata[0], GL_STATIC_DRAW);
+
+        // Draw elem
         glPushMatrix();
-        glTranslatef(0,-0.5,-0.5);
-        glBegin(GL_POLYGON);
-        glVertex3f(0,0,-3);
-        glVertex3f(-1,-1,-3);
-        glVertex3f(1,-1,-3);
-        glEnd();
+        glTranslatef(-params.tx,-params.ty,-params.tz);
+        glRotatef(params.rz, 0.0, 0.0, 1.0);
+        glRotatef(params.ry, 0.0, 1.0, 0.0);
+        glRotatef(params.rx+180, 1.0, 0.0, 0.0);
+        glBindVertexArray(0);
+        glBindVertexArray(vao);
+        glDrawElements(GL_TRIANGLES, indexdata.size(), GL_UNSIGNED_SHORT, (void*)0);
         glPopMatrix();
 
-        // Read buffer test
+        glDisable( GL_NORMALIZE );
+        glDisable( GL_TEXTURE_2D );
+
         std::vector<std::uint8_t> data(renderWidth*renderHeight*4);
-        glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
         glReadBuffer(GL_BACK);
         glReadPixels(0,0,renderWidth,renderHeight,GL_BGRA,GL_UNSIGNED_BYTE,&data[0]);
-        glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo); //Might not be necessary...
         cv::Mat m(cv::Size(renderWidth, renderHeight),CV_8UC4, &data[0]);
         cv::flip(m, m, -1);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        cv::Rect rect(renderWidth/2 - width/2, renderHeight/2 - height/2, width, height);
+        cv::Mat out = m(rect);
 
-        //glutSwapBuffers();
-        //glutPostRedisplay();
-        //glutMainLoopEvent();
+        // My Test
+        for(auto v : vertexdata){
+            Eigen::Vector3f point(v.position[0],v.position[1],v.position[2]);
+            cv::Point2i pixel = transformAndProject(point);
+            cv::circle(out, pixel, 2, cv::Scalar(255,0,0));
+        }
 
-        return m.clone();
+        glfwSwapBuffers(window_slave);
+        return out.clone();
     }
 
 };
 
-void thread_worker(const SMPL& smpl, int x){
+int test(){
+    glfwInit();
+    //glewInit();
+
+    // Load SMPL
+    SMPL smpl;
+    smpl.loadModelFromJSONFile(std::string(CMAKE_CURRENT_SOURCE_DIR) + "/model.json");
+    std::cout.setstate(std::ios_base::failbit);
+    smpl.updateModel();
+    std::cout.clear();
+
+    // Single thread
     Renderer r;
-    r.startOnThread(std::to_string(x));
+    r.startOnThread("win");
+    Renderer::Params params;
+    params.cameraSize = cv::Size(640,480);
+    params.fl = 500.;
+    params.cx = params.cameraSize.width/2-5;
+    params.cy = params.cameraSize.height/2+5;
+    params.tx = 0.2;
+    params.ty = 0.2;
+    params.tz = 2.5;
+    params.rx = 20;
+    params.ry = 20;
+    params.rz = 20;
+    r.setCameraParams(params);
+    cv::Mat out = r.draw(smpl.mVTemp2, smpl.mF);
+
+    //    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    //    for(int i=0; i<50; i++){
+    //        r.draw(smpl.mVTemp2, smpl.mF);
+
+    //        cv::Mat out = r.draw(smpl.mVTemp2, smpl.mF);
+    //        cv::imshow("win",out);
+    //        cv::waitKey(15);
+
+    //        cout << i << endl;
+    //    }
+    //    std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
+    //    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. << " ms" << std::endl;
 
     while(1){
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        cv::imshow("win",out);
+        cv::waitKey(15);
     }
+
+    //    RendererManager manager;
+    //    int totalThreads = 4;
+    //    int totalOps = 1000;
+    //    for(int i=0; i<totalThreads; i++){
+    //        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    //        manager.addThread();
+    //    }
+
+    //    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    //    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    //    for(int i=0; i<totalOps/totalThreads; i++){
+    //        manager.signal();
+    //        manager.wait();
+    //        cout << i << endl;
+    //    }
+    //    cout << "**DONE**" << endl;
+    //    std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
+    //    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. << " ms" << std::endl;
+
+    //    manager.join();
 }
 
-int test(){
-//    Renderer r;
-//    r.startOnThread();
-//    cv::Mat a = r.draw();
-//    while(1){
-//        cv::imshow("win",a);
-//        cv::waitKey(15);
+class RendererManager{
+public:
 
-//    }
+    std::vector<std::thread> rendererThreads;
+    std::vector<bool> renderThreadCompletes;
+    std::vector<Renderer::Params> renderParams;
+    std::vector<cv::Mat> renderOutputs;
+    //std::vector<std::unique_ptr<std::condition_variable>> conditions;
 
-    SMPL smpl;
+    std::mutex sendMtx, recvMtx, boolLock;
+    std::condition_variable sendCv;
 
-    const int num_threads = 2;
-    std::thread t[num_threads];
-
-    //Launch a group of threads
-    for (int i = 0; i < num_threads; ++i) {
-        t[i] = std::thread(thread_worker, smpl, i);
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    static std::string printBool(std::vector<bool>& bools){
+        std::string xx;
+        for(int i=0; i<bools.size(); i++){
+            if(bools[i]) xx += "1"; else xx+="0";
+        }
+        return xx;
     }
 
-    std::cout << "Launched from the main\n";
+    static void thread_worker(int id, RendererManager* manager){
+        Renderer r;
+        r.startOnThread(std::to_string(id));
 
-    //Join the threads with the main thread
-    for (int i = 0; i < num_threads; ++i) {
-        t[i].join();
+        while(1){
+            //std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::unique_lock<std::mutex> lck(manager->sendMtx);
+            manager->sendCv.wait(lck);
+            lck.unlock();
+            //r.draw();
+
+            //r.setCameraParams(manager->renderParams[id]);
+
+            cout << "AA" << endl;
+            manager->boolLock.lock();
+            manager->renderThreadCompletes[id] = true;
+            bool done = (std::find(std::begin(manager->renderThreadCompletes), std::end(manager->renderThreadCompletes), false) == std::end(manager->renderThreadCompletes));
+            manager->boolLock.unlock();
+            if(done)
+                manager->recvMtx.unlock();
+        }
     }
-}
+
+    RendererManager(){
+
+    }
+
+    void addThread(){
+        renderThreadCompletes.push_back(false);
+        rendererThreads.push_back(std::thread(RendererManager::thread_worker, rendererThreads.size(), this));
+    }
+
+    void signal(){
+        boolLock.lock();
+        for(auto i : renderThreadCompletes) i = 0;
+        boolLock.unlock();
+        recvMtx.lock();
+        std::unique_lock<std::mutex> sendLck(sendMtx);
+        sendCv.notify_all();
+        sendLck.unlock();
+    }
+
+    void wait(){
+        recvMtx.lock();
+        recvMtx.unlock();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
+    void join(){
+        for (int i = 0; i < rendererThreads.size(); ++i) {
+            rendererThreads[i].join();
+        }
+    }
+
+};
 
 int main(int argc, char *argv[])
 {
-    //test();
-
+    test();
+    exit(-1);
 
     //testTensor();
     //exit(-1);

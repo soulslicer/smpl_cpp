@@ -76,7 +76,7 @@ target_link_libraries(
   ${GLEW_LIBRARIES}
   ${OpenPose_LIBS} ${GFLAGS_LIBRARY} ${GLOG_LIBRARY}
   jsoncpp
-  "/usr/lib/x86_64-linux-gnu/libglfw.so.3.0"
+  "/usr/lib/x86_64-linux-gnu/libglfw.so.3.1"
 )
 
 add_executable(test2 "test2.cpp" "pf.h" "pf.cpp")
@@ -87,7 +87,7 @@ target_link_libraries(
   ${OPENGL_LIBRARIES}
   ${GLEW_LIBRARIES}
   jsoncpp
-  "/usr/lib/x86_64-linux-gnu/libglfw.so.3.0"
+  "/usr/lib/x86_64-linux-gnu/libglfw.so.3.1"
 )
 
 add_executable(smpl_fit "smpl_fit.cpp" "pf.h" ${test_SRC})
@@ -98,13 +98,8 @@ target_link_libraries(
   ${OPENGL_LIBRARIES}
   ${GLEW_LIBRARIES}
   ${OpenPose_LIBS}
-  #"/home/raaj/openpose/build/src/openpose/libopenpose.so"
-  #"/home/raaj/openpose/build/caffe/lib/libcaffe.so"
   jsoncpp
-  "/usr/lib/x86_64-linux-gnu/libglfw.so.3.0"
-  #${CAFFE_LIBRARIES}
-  #${CUDA_LIBRARIES}
-  #"/home/raaj/caffe/build/lib/libcaffe.so"
+  "/usr/lib/x86_64-linux-gnu/libglfw.so.3.1"
   -lboost_system
 )
 

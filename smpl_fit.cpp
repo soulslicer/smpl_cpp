@@ -159,6 +159,7 @@ public:
             for(int j=0; j<24; j++){
                 Eigen::Vector3f hypoPoint(smpl.mJTemp2(j,0),smpl.mJTemp2(j,1),smpl.mJTemp2(j,2));
                 cv::Point hypoPix = project(hypoPoint, params);
+                if(j==12)
                 cv::circle(debugImg, hypoPix, 3, cv::Scalar(0,255,0), CV_FILLED);
 
                 int opIndex = -1;
@@ -168,6 +169,7 @@ public:
                 if(j == 5) opIndex = 9;
                 if(j == 7) opIndex = 13;
                 if(j == 8) opIndex = 10;
+                if(j == 12) opIndex = 18; // Head
                 if(j == 15) opIndex = 1;
                 if(j == 16) opIndex = 5;
                 if(j == 17) opIndex = 2;
@@ -175,10 +177,12 @@ public:
                 if(j == 19) opIndex = 3;
                 if(j == 20) opIndex = 7;
                 if(j == 21) opIndex = 4;
+
                 if(opIndex < 0) continue;
 
                 cv::Point truthPix(opOutput(opIndex,0),opOutput(opIndex,1));
                 cv::circle(debugImg, truthPix, 3, cv::Scalar(255,0,0), CV_FILLED);
+                cv::line(debugImg, hypoPix, truthPix, cv::Scalar(255,0,0));
                 float reprojErr = l2distance(truthPix, hypoPix);
                 weights(i,0) += pixelReprojProb.getProbability(reprojErr).log;
             }
@@ -209,12 +213,18 @@ public:
 };
 
 Eigen::MatrixXf convertOPtoEigen(op::Array<float>& opOutput){
+    int origSize = opOutput.getSize()[1];
     Eigen::MatrixXf eigen(opOutput.getSize()[1],opOutput.getSize()[2]);
     for(int r=0; r<eigen.rows(); r++){
         for(int c=0; c<eigen.cols(); c++){
             eigen(r,c) = opOutput[eigen.cols()*r + c];
         }
     }
+
+    // Add head
+    eigen.conservativeResize(eigen.rows()+1, eigen.cols());
+    eigen.row(origSize) = Eigen::Vector3f((eigen(16,0)+eigen(17,0))/2, (eigen(16,1)+eigen(17,1))/2, (eigen(16,2)+eigen(17,2))/2);
+
     return eigen;
 }
 
@@ -344,7 +354,10 @@ void testPF(){
     std::chrono::steady_clock::time_point begin, end;
 
     // OP
-    cv::Mat im1 = cv::imread("/home/ryaadhav/smpl_cpp/data/00001_image.png");
+    cv::Mat im1 = cv::imread(std::string(CMAKE_CURRENT_SOURCE_DIR) + "/data/00001_image.png");
+    cout << im1.size() << endl;
+//    cv::Mat im1 = cv::imread("/home/raaj/Desktop/Ballet.jpg");
+//    cv::resize(im1, im1, cv::Size(145, 201));
     cv::resize(im1, im1, cv::Size(0,0),3,3);
     OpenPose op;
     op::Array<float> opOutput = op.forward(im1);
@@ -367,17 +380,16 @@ void testPF(){
     renderer.setCameraParams(params);
     renderer.startOnThread("thread");
 
-    SMPLTracker pf(600,85);
+    SMPLTracker pf(300,85);
     pf.input = im1.clone();
     pf.meanSMPL.loadPoseFromJSONFile(std::string(CMAKE_CURRENT_SOURCE_DIR) + "/data/00001_body.json");
     pf.meanSMPL.updateModel();
 
     // Noise
     Eigen::MatrixXf noiseVector(85,1);
-    Eigen::MatrixXf initialVal(85,2);
+    Eigen::MatrixXf initialVal = Eigen::MatrixXf::Zero(85,2);
 
-    for(int i=0; i<24; i++){
-        cout <<  pf.meanSMPL.mPose.row(i) << endl;
+    for(int i=0; i<0; i++){
         initialVal(i*3 + 0, 0) = pf.meanSMPL.mPose(i,0);
         initialVal(i*3 + 1, 0) = pf.meanSMPL.mPose(i,1);
         initialVal(i*3 + 2, 0) = pf.meanSMPL.mPose(i,2);
@@ -390,27 +402,35 @@ void testPF(){
     }
 
     for(int i=0; i<72; i++){
-        initialVal(i,0) += 0.1; // Add noise
+        //initialVal(i,0) += 0.1; // Add noise
         initialVal(i,1) = 0.01;
         noiseVector(i,0) = 0.01;
     }
     for(int i=72; i<82; i++){
-        //initialVal(i,0) = 0;
+        //initialVal(i,0) += 0.1; // Noise
         initialVal(i,1) = 0.01;
         noiseVector(i,0) = 0.01;
     }
     for(int i=82; i<85; i++){
-        //initialVal(i,0) = 0;
+        //initialVal(i,0) += 0.5; // Noise
         initialVal(i,1) = 0.01;
         noiseVector(i,0) = 0.005;
     }
-    initialVal(0,0) += 0.3;
-    //initialVal(0,0) += 3.14/2;
+
+//    noiseVector(0,0) = 0;
+//    noiseVector(1,0) = 0;
+//    noiseVector(2,0) = 0;
+
+    //initialVal(0,0) += 0.3;
+    //initialVal(0,0) += 3.14;
     //initialVal(82,0) = 0.02;
     //initialVal(83,0) = 0.08;
     initialVal(84,0) += 0.5;
     pf.initGauss(initialVal);
     pf.setNoise(noiseVector);
+
+    cv::imshow("out",im1);
+    cv::waitKey(1000);
 
     while(1){
 
@@ -419,21 +439,13 @@ void testPF(){
 
         //cv::Mat debugImg = pf.input.clone();
         cv::Mat debugImg = pf.weightFunction(opOutputEigen, params);
-
         end= std::chrono::steady_clock::now();
         std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. << " ms" << std::endl;
 
-
         pf.resampleParticles();
         pf.computeMeanSMPL();
-
-        //        cout << pf.computeMean() << endl;
-        //        exit(-1);
-
-
         cv::Mat out = renderer.draw(pf.meanSMPL.mVTemp2, pf.meanSMPL.mF);
         overlayImage(&debugImg, &out, cv::Point());
-
         cv::imshow("out",debugImg);
         cv::waitKey(15);
     }

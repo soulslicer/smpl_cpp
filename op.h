@@ -7,6 +7,7 @@
 #include <openpose/gui/headers.hpp>
 #include <openpose/pose/headers.hpp>
 #include <openpose/utilities/headers.hpp>
+#include <caffe/caffe.hpp>
 
 #define FLAGS_logging_level 3
 #define FLAGS_output_resolution "-1x-1"
@@ -16,7 +17,7 @@
 #define FLAGS_scale_gap 0.3
 #define FLAGS_scale_number 1
 #define FLAGS_render_threshold 0.05
-#define FLAGS_num_gpu_start 1
+#define FLAGS_num_gpu_start 0
 #define FLAGS_disable_blending false
 #define FLAGS_model_folder CMAKE_MODELS
 
@@ -28,6 +29,9 @@ public:
     std::unique_ptr<op::ScaleAndSizeExtractor> scaleAndSizeExtractor;
 
     OpenPose(){
+        caffe::Caffe::set_mode(caffe::Caffe::GPU);
+        caffe::Caffe::SetDevice(0);
+
         op::log("OpenPose Library Tutorial - Example 1.", op::Priority::High);
         // ------------------------- INITIALIZATION -------------------------
         // Step 1 - Set logging level

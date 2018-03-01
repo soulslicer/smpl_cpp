@@ -27,6 +27,7 @@ from posemapper import posemap
 import scipy.sparse as sp
 from chumpy.ch import MatVecMult
 import numpy as np
+import time
 
 def ischumpy(x): return hasattr(x, 'dterms')
 
@@ -78,10 +79,20 @@ def verts_decorated(trans, pose,
     # IS this needed
     if sp.issparse(J):
         regressor = J
+
+        print regressor.shape
         J_tmpx = MatVecMult(regressor, v_shaped[:,0])
         J_tmpy = MatVecMult(regressor, v_shaped[:,1])
         J_tmpz = MatVecMult(regressor, v_shaped[:,2])
         J = chumpy.vstack((J_tmpx, J_tmpy, J_tmpz)).T
+
+        #XX = np.array(regressor) * np.array(v_shaped[:,0])
+        #print "--"
+        #print XX.shape
+        #print XX
+        #print v_shaped[200,2]
+        #print XX[1]
+
     else:
         assert(ischumpy(J))
         
@@ -110,6 +121,7 @@ def verts_decorated(trans, pose,
         result.v_shaped = v_shaped
     if want_Jtr:
         result.J_transformed = Jtr
+        #print Jtr
     return result
 
 def verts_core(pose, v, J, weights, kintree_table, bs_style, want_Jtr=False, xp=chumpy):

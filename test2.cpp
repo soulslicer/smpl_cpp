@@ -1,494 +1,454 @@
-//#include <mutex>
-//#include <stdio.h>
-//#include <GL/glew.h>
-
-//#include <GL/gl.h>
-//#include <GL/glut.h>
-//#include <GL/freeglut_ext.h>
-//#include <GL/freeglut_std.h>
-//#include <GL/glu.h>
-//#include <opencv2/opencv.hpp>
-//#include <GLFW/glfw3.h>
-//#include <chrono>
-//#include <thread>
-//#include <fstream>
-//#include <mutex>
-//#include <functional>
-//#include <eigen3/Eigen/Eigen>
-//#include <iostream>
-//using namespace std;
-//#define BUFFER_OFFSET(i) ((char *)NULL + (i))
-
-//#include <GL/glew.h>
-//#include <GLFW/glfw3.h>
-//#include <vector>
-//#include <cmath>
-//#include <cstdio>
-//#include <limits>
-//#include <chrono>
-//#include <thread>
-//#include <mutex>
-
-////#define GL33
-////#define FULLSCREEN
-
-
-//static const int width = 640;
-//static const int height = 360;
-
-//GLFWwindow* window;
-//GLFWwindow* window_slave;
-//GLuint fb[2] = {std::numeric_limits<GLuint>::max(), std::numeric_limits<GLuint>::max()}; //framebuffers
-//GLuint rb[2] = {std::numeric_limits<GLuint>::max(), std::numeric_limits<GLuint>::max()}; //renderbuffers, color and depth
-
-//bool threadShouldRun = true;
-//bool isFBOdirty = true; //true when last frame was displayed, false
-//                        //when just updated and not yet displayed
-//bool isFBOready = false; //set by worker thread when initialized
-//bool isFBOsetupOnce = false; //set by main thread when initialized
-
-//std::timed_mutex mutexGL;
-
-//static bool checkFrameBuffer(GLuint fbuffer)
-//{
-//    bool isFB = glIsFramebuffer(fbuffer);
-//    bool isCA = glIsRenderbuffer(rb[0]);
-//    bool isDSA = glIsRenderbuffer(rb[1]);
-//    bool isComplete = false;
-//    if(isFB){
-//        glBindFramebuffer(GL_FRAMEBUFFER, fbuffer);
-//        isComplete = (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-//    }
-
-///*
-//    printf("Is fb a framebuffer? %s\n", isFB ? "[yes]" : "[no]");
-//    printf("Is rb[0] a color renderbuffer? %s\n", isCA ? "[yes]" : "[no]");
-//    printf("Is rv[1] a depth stencil renderbuffer? %s\n", isDSA ? "[yes]" : "[no]");
-//    printf("Is fb framebuffer-complete? %s\n", isComplete ? "[yes]" : "[no]");
-//*/
-//    return isFB && isCA &&isDSA && isComplete;
-//}
-
-///* worker thread creates its own FBO to render to, as well as two renderbuffers.
-//The renderbuffers are also used by a separate FBO in main()
-//fb[0] is owned by main, and fb[1] is owned by worker thread
-//*/
-//static bool createFrameBuffer() //for worker thread
-//{
-//    bool ret;
-
-//    glGenFramebuffers(1, &fb[1]);
-//    glBindFramebuffer(GL_FRAMEBUFFER, fb[1]);
-//    glGenRenderbuffers(2, rb);
-//    glBindRenderbuffer(GL_RENDERBUFFER, rb[0]);
-//    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 2, GL_RGBA8, width, height);
-//    glBindRenderbuffer(GL_RENDERBUFFER, rb[1]);
-//    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 2, GL_DEPTH24_STENCIL8, width, height);
-
-//    glBindRenderbuffer(GL_RENDERBUFFER, rb[0]);
-//    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, rb[0]);
-//    glBindRenderbuffer(GL_RENDERBUFFER, rb[1]);
-//    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rb[1]);
-
-//    glFlush();
-
-//    if(!(ret = checkFrameBuffer(fb[1]))){
-//        glDeleteRenderbuffers(2, rb);
-//        glDeleteFramebuffers(1,  &fb[1]);
-//        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-//    }
-//    return ret;
-//}
-
-///* If worker thread is finished initializing renderbuffers, reuse them in a FBO for main.
-//fb[0] is owned by main, and fb[1] is owned by worker thread */
-//static void createFrameBufferMain()
-//{
-//    while(!mutexGL.try_lock_for(std::chrono::seconds(1))){
-//        return;
-//    }
-
-//    if(isFBOready){ //is other thread finished setting up FBO?
-//        if(glIsRenderbuffer(rb[0]) && glIsRenderbuffer(rb[1])){
-//            glBindFramebuffer(GL_FRAMEBUFFER, fb[0]);
-//            glBindRenderbuffer(GL_RENDERBUFFER, rb[0]);
-//            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, rb[0]);
-//            glBindRenderbuffer(GL_RENDERBUFFER, rb[1]);
-//            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rb[1]);
-//            isFBOsetupOnce = true;
-//        }
-//    }
-//    mutexGL.unlock();
-//}
-
-///* Used in main to copy from fbo into the real framebuffer.
-//fb[0] FBO owned by main reuses renderbuffers from worker thread.
-//The contents of those renderbuffers are then copied into the
-//default framebuffer by this function. */
-//static void copyFrameBuffer(GLuint fbuffer)
-//{
-//    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbuffer);
-//    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-//    glBlitFramebuffer(0, 0, width, height,
-//                      0, 0, width, height,
-//                      GL_COLOR_BUFFER_BIT,
-//                      GL_NEAREST);
-//    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-//    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-//}
-
-//static GLFWwindow* initWindow(GLFWwindow* shared, bool visible)
-//{
-//    GLFWwindow* win;
-//#ifdef GL33
-//    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
-//    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-//    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-//#endif
-//    if(visible)
-//        glfwWindowHint(GLFW_VISIBLE, GL_TRUE);
-//    else
-//        glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
-
-//#ifdef FULLSCREEN
-//    GLFWmonitor* monitor = 0;
-//    if(visible) //Don't create fullscreen window for offscreen contexts
-//        monitor = glfwGetPrimaryMonitor();
-//    win = glfwCreateWindow(width, height, "Optimus example", monitor, shared);
-//#else
-//    win = glfwCreateWindow(width, height, "Optimus example", 0, shared);
-//#endif
-//    return win;
-//}
-
-//static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
-//{
-//    if ((key == GLFW_KEY_ESCAPE || key == GLFW_KEY_ENTER)
-//        && action == GLFW_PRESS){
-//        glfwSetWindowShouldClose(window, GL_TRUE);
-//    }
-//}
-
-///********************************************** TEST *********************************/
-//static void worker_thread()
-//{
-//    glfwMakeContextCurrent(window_slave);
-//    //create new shared framebuffer object
-//    mutexGL.lock();
-//    createFrameBuffer();
-//    isFBOready = true;
-//    mutexGL.unlock();
-
-//    for(;;){
-//        mutexGL.lock();
-//        if(!threadShouldRun){
-//            mutexGL.unlock();
-//            break;
-//        }
-//        if(isFBOdirty){
-//            glBindFramebuffer(GL_FRAMEBUFFER, fb[1]);
-//            float r = (float)rand() / (float)RAND_MAX;
-//            glClearColor(r,r,r,1.0f);
-//            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-//            // Draw?
-//            glMatrixMode( GL_MODELVIEW );
-//            glLoadIdentity();
-//            glEnable(GL_LIGHTING);
-//            glShadeModel( GL_SMOOTH );
-//            glEnable( GL_TEXTURE_2D );
-//            glPushMatrix();
-//            glTranslatef(0,-0.5,-0.5);
-//            glBegin(GL_POLYGON);
-//            glVertex3f(0,0,-3);
-//            glVertex3f(-1,-1,-3);
-//            glVertex3f(1,-1,-3);
-//            glEnd();
-//            glPopMatrix();
-
-//            glFlush();
-
-
-//            isFBOdirty = false;
-//        }
-//        mutexGL.unlock();
-//    }
-//    printf("Exiting thread..\n");
-//    return;
-//}
-
-//int main(int argc, char* argv[])
-//{
-//    if(!glfwInit()){
-//        printf("Failed to initialize glfw\n");
-//        return 0;
-//    }
-//    //main window
-//    window = initWindow(0, true);
-//    //window used by second thread
-//    window_slave = initWindow(window, false);
-
-//    if(!window || !window_slave){
-//        glfwTerminate();
-//        printf("Failed to create glfw windows\n");
-//        return 0;
-//    }
-//    glfwSetKeyCallback(window, key_callback);
-//    glfwMakeContextCurrent(window);
-
-//    if(glewInit()){
-//        printf("Failed to init GLEW\n");
-//        glfwDestroyWindow(window);
-//        glfwDestroyWindow(window_slave);
-//        glfwTerminate();
-//        return 0;
-//    }
-
-//    std::thread gl_thread(worker_thread);
-
-//    glGenFramebuffers(1, &fb[0]);
-//    glViewport(0, 0, width, height);
-
-//    while(!glfwWindowShouldClose(window)){
-//        glfwPollEvents(); //get key input
-//        if(!isFBOsetupOnce){
-//            createFrameBufferMain(); //isFBOsetupOnce = true when FBO can be used
-//        } else {
-//            if(checkFrameBuffer(fb[0])){
-//                if(!mutexGL.try_lock_for(std::chrono::seconds(1)))
-//                    continue;
-//                if(!isFBOdirty){
-//                    copyFrameBuffer(fb[0]);
-//                    glfwSwapBuffers(window);
-//                    isFBOdirty = true;
-//                    printf("Framebuffer OK\n");
-//                } else {
-//                    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-//                    glClearColor(0.0f, 0.0f, 1.0f, 1.0f);
-//                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-//                    printf("Framebuffer dirty\n");
-//                }
-//                mutexGL.unlock();
-//            } else {
-//                printf("Framebuffer not ready!\n");
-//                GLenum e = glGetError();
-//                printf("OpenGL error: %X\n", e);
-//            }
-//        }
-//    }
-//    threadShouldRun = false; //other thread only reads this
-//    gl_thread.join();
-//    glfwDestroyWindow(window);
-//    glfwDestroyWindow(window_slave);
-//    glfwTerminate();
-//    return 0;
-//}
-
-////class ThreadManager{
-////public:
-////    std::vector<std::thread> threads;
-////    std::vector<bool> threadCompletes;
-
-////    std::mutex sendMtx, boolLock, recvMtx;
-////    std::condition_variable sendCv;
-
-////    static std::string printBool(std::vector<bool>& bools){
-////        std::string xx;
-////        for(int i=0; i<bools.size(); i++){
-////            if(bools[i]) xx += "1"; else xx+="0";
-////        }
-////        return xx;
-////    }
-
-////    static void thread_worker(int id, ThreadManager* manager){
-
-////        std::mutex internal;
-
-////        while(1){
-////            // Wait for main thread signal
-////            std::unique_lock<std::mutex> lck(manager->sendMtx);
-////            manager->boolLock.lock(); cout << "Thread Wait: " << id << endl; manager->boolLock.unlock();
-////            manager->sendCv.wait(lck);
-////            lck.unlock();
-
-////            manager->boolLock.lock(); cout << "Start ParOp..: " << id << endl; manager->boolLock.unlock();
-////            std::this_thread::sleep_for(std::chrono::milliseconds(5));
-
-////            manager->boolLock.lock();
-////            manager->threadCompletes[id] = true;
-////            bool done = (std::find(std::begin(manager->threadCompletes), std::end(manager->threadCompletes), false) == std::end(manager->threadCompletes));
-////            cout << "Job Complete: " << id << " " << printBool(manager->threadCompletes) << endl;
-////            manager->boolLock.unlock();
-
-////            if(done){
-////                cout << "All Done" << endl;
-////                done = false;
-////                //manager->sendCv.notify_one();
-////                manager->recvMtx.unlock();
-////            }
-////        }
-////    }
-
-////    ThreadManager(){
-
-////    }
-
-////    void addThread(){
-////        threadCompletes.push_back(false);
-////        threads.push_back(std::thread(ThreadManager::thread_worker, threads.size(), this));
-////    }
-
-////    void signal(){
-////        boolLock.lock();
-////        for(auto i : threadCompletes) i = 0;
-////        boolLock.unlock();
-////        std::unique_lock<std::mutex> sendLck(sendMtx);
-////        //anotherMutex.lock();
-////        cout << "Notifying.." << endl;
-////        sendCv.notify_all();
-////        sendLck.unlock();
-////    }
-
-////    void wait(){
-////        recvMtx.lock();
-////        recvMtx.unlock();
-////        //std::unique_lock<std::mutex> sendLck(sendMtx);
-////        //sendCv.wait(sendLck);
-
-////        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-////        cout << "Ready" << endl;
-
-////    }
-
-////    void join(){
-////        for (int i = 0; i < threads.size(); ++i) {
-////            threads[i].join();
-////        }
-////    }
-////};
-
-
-////void test2(){
-
-////    ThreadManager manager;
-////    for(int i=0; i<4; i++){
-////        manager.addThread();
-////    }
-
-////    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
-////    for(int i=0; i<100; i++){
-////        manager.signal();
-////        manager.wait();
-////        cout << "\nComplete: " << i << endl << endl;
-////        //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-////    }
-
-////    cout << "ALL DONE" << endl;
-
-////    manager.join();
-
-////}
-
-//#include <stdio.h>
-//#include <stdlib.h>
-//#include <GL/glut.h>
-
-//void display(void);
-//void idle(void);
-//void draw_object(void);
-//void reshape(int x, int y);
-//void keyboard(unsigned char key, int x, int y);
-
-//int outline = 1;
-
-//int main(int argc, char **argv)
-//{
-//    glutInit(&argc, argv);
-//    glutInitWindowSize(800, 600);
-//    glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE | GLUT_MULTISAMPLE);
-
-//    glutCreateWindow("object outline example");
-
-//    glutDisplayFunc(display);
-//    glutIdleFunc(idle);
-//    glutReshapeFunc(reshape);
-//    glutKeyboardFunc(keyboard);
-
-//    glEnable(GL_LIGHTING);
-//    glEnable(GL_LIGHT0);
-//    glEnable(GL_DEPTH_TEST);
-//    glEnable(GL_CULL_FACE);
-//    glEnable(GL_MULTISAMPLE);
-
-//    glutMainLoop();
-//    return 0;
-//}
-
-
-//void display(void)
-//{
-//    unsigned int msec = glutGet(GLUT_ELAPSED_TIME);
-//    float t = (float)msec / 50.0f;
-
-//    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-//    glMatrixMode(GL_MODELVIEW);
-//    glLoadIdentity();
-//    glTranslatef(0, 0, -5);
-//    glRotatef(t, 1, 0, 0);
-//    glRotatef(t, 0, 1, 0);
-
-//    if(outline) {
-//        glDisable(GL_LIGHTING);
-//        glPolygonMode(GL_BACK, GL_LINE);
-//        glLineWidth(3);
-//        glCullFace(GL_FRONT);
-//        glColor3f(1, 0.5, 0.2);
-//        draw_object();
-//        glCullFace(GL_BACK);
-//        glPolygonMode(GL_BACK, GL_FILL);
-//        glEnable(GL_LIGHTING);
-//    }
-//    draw_object();
-
-//    glutSwapBuffers();
-//}
-
-//void idle(void)
-//{
-//    glutPostRedisplay();
-//}
-
-//void draw_object(void)
-//{
-//    glutSolidTorus(0.5, 1.0, 16, 24);
-//}
-
-//void reshape(int x, int y)
-//{
-//    glViewport(0, 0, x, y);
-//    glMatrixMode(GL_PROJECTION);
-//    glLoadIdentity();
-//    gluPerspective(50, (float)x / (float)y, 0.5, 500.0);
-//}
-
-//void keyboard(unsigned char key, int x, int y)
-//{
-//    switch(key) {
-//    case 27:
-//        exit(0);
-
-//    case ' ':
-//        outline = !outline;
-//        break;
-//    }
-//}
-
-
 #include <Eigen/Eigen>
 #include <opencv2/opencv.hpp>
 #include <pf.h>
+
+//void findContoursCV(cv::Mat& img, cv::OutputArrayOfArrays _contours){
+//    IplImage* iplImg = new IplImage(img);
+//    CvMemStorage *storage = cvCreateMemStorage(0);
+//    CvSeq *_ccontours = cvCreateSeq(0, sizeof(CvSeq), sizeof(CvPoint), storage);
+//    cvFindContours(iplImg, storage, &_ccontours, sizeof(CvContour), CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
+//    delete iplImg;
+
+//    if( !_ccontours )
+//    {
+//        _contours.clear();
+//        return;
+//    }
+//    cv::Seq<CvSeq*> all_contours(cvTreeToNodeSeq( _ccontours, sizeof(CvSeq), storage ));
+//    int i, total = (int)all_contours.size();
+//    _contours.create(total, 1, 0, -1, true);
+//    cv::SeqIterator<CvSeq*> it = all_contours.begin();
+//    for( i = 0; i < total; i++, ++it )
+//    {
+//        CvSeq* c = *it;
+//        ((CvContour*)c)->color = (int)i;
+//        _contours.create((int)c->total, 1, CV_32SC2, i, true);
+//        cv::Mat ci = _contours.getMat(i);
+//        CV_Assert( ci.isContinuous() );
+//        cvCvtSeqToArray(c, ci.ptr());
+//    }
+
+//    return;
+//}
+
+//class Renderer{
+//public:
+//    int renderWidth = 640;
+//    int renderHeight = 480;
+//    bool drawNormal = false;
+//    bool drawContour = true;
+//    bool drawLighting = false;
+
+//    const std::vector<GLfloat> LIGHT_DIFFUSE{ 1.f, 1.f, 1.f, 1.f };  // Diffuse light
+//    const std::vector<GLfloat> LIGHT_POSITION{ 1.f, 1.f, 1.f, 0.f };  // Infinite light location
+//    const std::vector<GLfloat> COLOR_DIFFUSE{ 0.5f, 0.5f, 0.5f, 1.f };
+
+//    GLFWwindow* window_slave;
+//    GLuint fb, rbc, rbd, pbo;
+
+//    GLuint vao;
+//    GLuint vbuffer;
+//    GLuint listId;
+//    GLuint ibuffer;
+
+//    struct Vertex{
+//        GLfloat position[3];
+//        GLfloat normal[3];
+//        GLfloat texcoord[2];
+//    };
+
+//    struct Params{
+//        cv::Size cameraSize;
+//        float fl, cx, cy;
+//        float tx, ty, tz, rx, ry, rz;
+//    };
+
+//    Params params;
+//    Eigen::Matrix4f transformMatrix;
+
+//    Renderer(){
+//    }
+
+//    Eigen::Matrix4f getTransformMatrix(float roll, float pitch, float yaw, float x, float y, float z){
+//        Eigen::AngleAxisf rollAngle(roll / 180.0 * M_PI, Eigen::Vector3f::UnitX());
+//        Eigen::AngleAxisf pitchAngle(pitch / 180.0 * M_PI, Eigen::Vector3f::UnitY());
+//        Eigen::AngleAxisf yawAngle(yaw / 180.0 * M_PI, Eigen::Vector3f::UnitZ());
+//        Eigen::Quaternion<float> q = yawAngle * pitchAngle * rollAngle;
+
+//        Eigen::Matrix3f rotationMatrix = q.matrix();
+//        Eigen::Matrix4f transformMatrix = Eigen::Matrix4f::Identity();
+//        transformMatrix(0,0) = rotationMatrix(0,0);
+//        transformMatrix(0,1) = rotationMatrix(0,1);
+//        transformMatrix(0,2) = rotationMatrix(0,2);
+//        transformMatrix(0,3) = x;
+//        transformMatrix(1,0) = rotationMatrix(1,0);
+//        transformMatrix(1,1) = rotationMatrix(1,1);
+//        transformMatrix(1,2) = rotationMatrix(1,2);
+//        transformMatrix(1,3) = y;
+//        transformMatrix(2,0) = rotationMatrix(2,0);
+//        transformMatrix(2,1) = rotationMatrix(2,1);
+//        transformMatrix(2,2) = rotationMatrix(2,2);
+//        transformMatrix(2,3) = z;
+//        transformMatrix(3,0) = 0;
+//        transformMatrix(3,1) = 0;
+//        transformMatrix(3,2) = 0;
+//        transformMatrix(3,3) = 1;
+//        return transformMatrix;
+//    }
+
+//    cv::Point2i transformAndProject(Eigen::Vector3f point){
+//        Eigen::Vector3f transformedPoint = point;
+//        transformedPoint(0) = (point(0)*transformMatrix(0,0) + point(1)*transformMatrix(0,1) + point(2)*transformMatrix(0,2) + transformMatrix(0,3));
+//        transformedPoint(1) = (point(0)*transformMatrix(1,0) + point(1)*transformMatrix(1,1) + point(2)*transformMatrix(1,2) + transformMatrix(1,3));
+//        transformedPoint(2) = (point(0)*transformMatrix(2,0) + point(1)*transformMatrix(2,1) + point(2)*transformMatrix(2,2) + transformMatrix(2,3));
+//        cv::Point2i pixel;
+//        pixel.x =(int)(((params.fl*transformedPoint(0))/transformedPoint(2)) + params.cx);
+//        pixel.y =(int)(((params.fl*transformedPoint(1))/transformedPoint(2)) + params.cy);
+//        return pixel;
+//    }
+
+//    void setCameraParams(Params params){
+//        this->params = params;
+//        transformMatrix = getTransformMatrix(params.rx,params.ry,params.rz,params.tx,params.ty,params.tz);
+//        if(params.cameraSize.width != renderWidth || params.cameraSize.height != renderHeight){
+//            renderWidth = params.cameraSize.width;
+//            renderHeight = params.cameraSize.height;
+//            glfwSetWindowSize(window_slave, renderWidth, renderHeight);
+//        }
+//    }
+
+//    void startOnThread(std::string name){
+//        // OpenGL - Initialization
+//        std::cout << "Initializing.." << std::endl;
+//        glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
+//        window_slave = glfwCreateWindow(renderWidth, renderHeight, name.c_str(), 0, 0);
+//        glfwMakeContextCurrent(window_slave);
+//        glewInit();
+
+//        if(drawLighting){
+//            glLightfv(GL_LIGHT0, GL_AMBIENT, LIGHT_DIFFUSE.data());
+//            glLightfv(GL_LIGHT0, GL_DIFFUSE, LIGHT_DIFFUSE.data());
+//            glLightfv(GL_LIGHT0, GL_POSITION, LIGHT_POSITION.data());
+//            glEnable(GL_LIGHT0);
+//            glEnable(GL_LIGHTING);
+//        }
+
+//        // Create and bind a VAO
+//        glGenVertexArrays(1, &vao);
+//        glBindVertexArray(vao);
+
+//        // Create and bind a BO for vertex data
+//        glGenBuffers(1, &vbuffer);
+//        glBindBuffer(GL_ARRAY_BUFFER, vbuffer);
+
+//        // Create and bind a BO for vertex data
+//        glGenBuffers(1, &ibuffer);
+//        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuffer);
+
+//        glEnable(GL_LIGHTING);
+//        glEnable( GL_DEPTH_TEST );
+//        glShadeModel( GL_SMOOTH );
+//        glEnable( GL_CULL_FACE );
+//        glClearColor( 0, 0, 0, 0 );
+
+//        cout << "Initialized" << endl;
+//    }
+
+//    cv::Mat draw(Eigen::MatrixXf mV, Eigen::MatrixXf mF){
+//        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+//        glFlush();
+//        glEnable(GL_LIGHTING);
+//        glShadeModel( GL_SMOOTH );
+//        glEnable( GL_TEXTURE_2D );
+//        glEnable(GL_CULL_FACE);
+//        glEnable(GL_MULTISAMPLE);
+
+//        float width = params.cameraSize.width;
+//        float height = params.cameraSize.height;
+//        float fx = params.fl;
+//        float cx = params.cx;
+//        float fy = params.fl;
+//        float cy = params.cy;
+//        float xs = ((width/2)-cx);
+//        float ys = ((height/2)-cy);
+//        float fovy = (180.0 / M_PI) * (atan2(height/2, fy)) * 2;
+
+//        xs = xs;
+//        ys = ys;
+//        glViewport(xs, ys, (float)renderWidth/1, (float)renderHeight/1. );
+//        glMatrixMode( GL_PROJECTION );
+//        glLoadIdentity();
+//        gluPerspective( fovy, (float)width/(float)height, 0.1, 100. );
+//        glMatrixMode( GL_MODELVIEW );
+//        glLoadIdentity();
+
+//        std::vector<Vertex> vertexdata(mV.rows());
+//        for(int r=0; r<mV.rows(); r++){
+//            Vertex& v = vertexdata[r];
+//            for(int c=0; c<mV.cols(); c++){
+//                v.position[c] = mV(r,c);
+//            }
+//        }
+
+//        std::vector<GLushort> indexdata(mF.rows()*3);
+//        for(int r=0; r<mF.rows(); r++){
+//            indexdata[r*3 + 0] = mF(r,0);
+//            indexdata[r*3 + 1] = mF(r,1);
+//            indexdata[r*3 + 2] = mF(r,2);
+//            if(drawNormal){
+//                Vertex& v0 = vertexdata[mF(r,0)];
+//                Vertex& v1 = vertexdata[mF(r,1)];
+//                Vertex& v2 = vertexdata[mF(r,2)];
+//                float x = (v1.position[1]-v0.position[1])*(v2.position[2]-v0.position[2])-(v1.position[2]-v0.position[2])*(v2.position[1]-v0.position[1]);
+//                float y = (v1.position[2]-v0.position[2])*(v2.position[0]-v0.position[0])-(v1.position[0]-v0.position[0])*(v2.position[2]-v0.position[2]);
+//                float z = (v1.position[0]-v0.position[0])*(v2.position[1]-v0.position[1])-(v1.position[1]-v0.position[1])*(v2.position[0]-v0.position[0]);
+//                float length = std::sqrt( x*x + y*y + z*z );
+//                x /= length;
+//                y /= length;
+//                z /= length;
+//                for(int i=0; i<3; i++){
+//                    vertexdata[mF(r,i)].normal[0] = x;
+//                    vertexdata[mF(r,i)].normal[1] = y;
+//                    vertexdata[mF(r,i)].normal[2] = z;
+//                }
+//            }
+//        }
+
+//        glEnable( GL_TEXTURE_2D );
+//        glEnable( GL_NORMALIZE );
+//        glColor4f( 0.0f, 0.0f, 0.0f, 0.0f );
+
+//        glBindVertexArray(vao);
+//        glBindBuffer(GL_ARRAY_BUFFER, vbuffer);
+
+//        // copy data into the buffer object
+//        glBufferData(GL_ARRAY_BUFFER, vertexdata.size() * sizeof(Vertex), &vertexdata[0], GL_STATIC_DRAW);
+
+//        // set up vertex attributes
+//        glEnableClientState(GL_VERTEX_ARRAY);
+//        glVertexPointer(3, GL_FLOAT, sizeof(Vertex), (void*)offsetof(Vertex, position)); // vertices
+//        glEnableClientState(GL_NORMAL_ARRAY);
+//        glNormalPointer(GL_FLOAT, sizeof(Vertex), (void*)offsetof(Vertex, normal)); // normals
+//        glClientActiveTexture(GL_TEXTURE0);
+//        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+//        glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex), (void*)offsetof(Vertex, texcoord)); // normal
+
+//        // Create and bind a BO for index data
+//        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuffer);
+
+//        // copy data into the buffer object
+//        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexdata.size() * sizeof(GLushort), &indexdata[0], GL_STATIC_DRAW);
+
+//        // Set Transforms
+//        glPushMatrix();
+//        glTranslatef(-params.tx,-params.ty,-params.tz);
+//        glRotatef(params.rz, 0.0, 0.0, 1.0);
+//        glRotatef(params.ry, 0.0, 1.0, 0.0);
+//        glRotatef(params.rx+180, 1.0, 0.0, 0.0);
+
+//        // Draw
+//        if(drawContour){
+//            glDisable(GL_LIGHTING);
+//            glPolygonMode(GL_BACK, GL_LINE);
+//            glLineWidth(1);
+//            glCullFace(GL_FRONT);
+//            glColor3f(1., 1., 1.);
+//            glBindVertexArray(0);
+//            glBindVertexArray(vao);
+//            glDrawElements(GL_TRIANGLES, indexdata.size(), GL_UNSIGNED_SHORT, (void*)0);
+//            glCullFace(GL_BACK);
+//            glPolygonMode(GL_BACK, GL_FILL);
+//            glEnable(GL_LIGHTING);
+//            glBindVertexArray(0);
+//            glBindVertexArray(vao);
+//            glDrawElements(GL_TRIANGLES, indexdata.size(), GL_UNSIGNED_SHORT, (void*)0);
+//        }else{
+//            glBindVertexArray(0);
+//            glBindVertexArray(vao);
+//            glDrawElements(GL_TRIANGLES, indexdata.size(), GL_UNSIGNED_SHORT, (void*)0);
+//        }
+
+//        glPopMatrix();
+//        glDisable( GL_NORMALIZE );
+//        glDisable( GL_TEXTURE_2D );
+
+//        std::vector<std::uint8_t> data(renderWidth*renderHeight*4);
+//        glReadBuffer(GL_BACK);
+//        glReadPixels(0,0,renderWidth,renderHeight,GL_BGRA,GL_UNSIGNED_BYTE,&data[0]);
+//        cv::Mat m(cv::Size(renderWidth, renderHeight),CV_8UC4, &data[0]);
+//        cv::flip(m, m, -1);
+//        cv::Rect rect(renderWidth/2 - width/2, renderHeight/2 - height/2, width, height);
+//        cv::Mat out = m(rect);
+
+//        // My Test
+//        //for(auto v : vertexdata){
+//        //    Eigen::Vector3f point(v.position[0],v.position[1],v.position[2]);
+//        //    cv::Point2i pixel = transformAndProject(point);
+//        //    cv::circle(out, pixel, 2, cv::Scalar(255,0,0));
+//        //}
+
+//        glfwSwapBuffers(window_slave);
+//        return out.clone();
+//    }
+
+//};
+
+//class RendererManager{
+
+//private:
+//    std::vector<std::thread> rendererThreads;
+//    std::vector<bool> renderThreadCompletes;
+//    std::mutex sendMtx, recvMtx, writebackLock;
+//    std::condition_variable sendCv;
+//    std::chrono::steady_clock::time_point begin, end;
+
+//public:
+//    typedef std::pair<Eigen::MatrixXf*,Eigen::MatrixXf*> RenderData;
+//    std::vector<RenderData> renderDatas;
+//    std::vector<Renderer::Params> renderParams;
+//    std::vector<cv::Mat> renderOutputs;
+//    std::vector<std::vector<cv::Point>> renderContours;
+
+//    static void thread_worker(int id, RendererManager* manager){
+//        Renderer r;
+//        r.startOnThread(std::to_string(id));
+
+//        while(1){
+//            std::unique_lock<std::mutex> lck(manager->sendMtx);
+//            manager->sendCv.wait(lck);
+//            lck.unlock();
+
+//            // Work
+//            r.setCameraParams(manager->renderParams[id]);
+//            cv::Mat out = r.draw(*manager->renderDatas[id].first,*manager->renderDatas[id].second);
+//            cv::cvtColor(out, out, CV_BGRA2GRAY);
+//            std::vector<std::vector<cv::Point>> contours;
+//            findContoursCV(out, contours);
+
+//            manager->writebackLock.lock();
+//            manager->renderOutputs[id] = out;
+//            manager->renderContours[id] = contours[0];
+//            manager->renderThreadCompletes[id] = true;
+//            bool done = (std::find(std::begin(manager->renderThreadCompletes), std::end(manager->renderThreadCompletes), false) == std::end(manager->renderThreadCompletes));
+//            manager->writebackLock.unlock();
+//            if(done)
+//                manager->recvMtx.unlock();
+//        }
+//    }
+
+//    RendererManager(){
+
+//    }
+
+//    void addThread(){
+//        renderContours.push_back(std::vector<cv::Point>());
+//        renderDatas.push_back(RenderData());
+//        renderOutputs.push_back(cv::Mat());
+//        renderParams.push_back(Renderer::Params());
+//        renderThreadCompletes.push_back(false);
+//        rendererThreads.push_back(std::thread(RendererManager::thread_worker, rendererThreads.size(), this));
+//    }
+
+//    void signal(){
+//        writebackLock.lock();
+//        for(auto i : renderThreadCompletes) i = 0;
+//        writebackLock.unlock();
+//        recvMtx.lock();
+//        std::unique_lock<std::mutex> sendLck(sendMtx);
+//        sendCv.notify_all();
+//        sendLck.unlock();
+//    }
+
+//    void wait(){
+//        recvMtx.lock();
+//        recvMtx.unlock();
+//        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+//    }
+
+//    void join(){
+//        for (int i = 0; i < rendererThreads.size(); ++i) {
+//            rendererThreads[i].join();
+//        }
+//    }
+
+//};
+
+//int test(){
+//    glfwInit();
+//    //glewInit();
+
+//    // Load SMPL
+//    SMPL smpl;
+//    smpl.loadModelFromJSONFile(std::string(CMAKE_CURRENT_SOURCE_DIR) + "/model.json");
+//    std::cout.setstate(std::ios_base::failbit);
+//    smpl.updateModel();
+//    std::cout.clear();
+
+//    // Params
+//    int totalThreads = 10;
+//    int totalOps = 1000;
+//    std::chrono::steady_clock::time_point begin, end;
+//    Renderer::Params params;
+//    params.cameraSize = cv::Size(640,480);
+//    params.fl = 500.;
+//    params.cx = params.cameraSize.width/2-5;
+//    params.cy = params.cameraSize.height/2+5;
+//    params.tx = 0.2;
+//    params.ty = 0.2;
+//    params.tz = 2.5;
+//    params.rx = 20;
+//    params.ry = 20;
+//    params.rz = 20;
+
+////    // Single thread
+////    Renderer r;
+////    r.startOnThread("win");
+////    r.setCameraParams(params);
+////    cv::Mat out = r.draw(smpl.mVTemp2, smpl.mF);
+////    begin = std::chrono::steady_clock::now();
+////    for(int i=0; i<1; i++){
+////        r.draw(smpl.mVTemp2, smpl.mF);
+////    }
+////    end= std::chrono::steady_clock::now();
+////    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. << " ms" << std::endl;
+
+////    // Contour
+////    begin = std::chrono::steady_clock::now();
+////    cv::Mat convert;
+////    cv::cvtColor(out, out, CV_BGRA2GRAY);
+////    std::vector<std::vector<cv::Point>> contours;
+////    findContoursCV(out, contours);
+////    end= std::chrono::steady_clock::now();
+////    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. << " ms" << std::endl;
+////    while(1){
+////        cv::imshow("im", out);
+////        cv::waitKey(15);
+////    }
+
+//    // Start Threads
+//    RendererManager manager;
+//    for(int i=0; i<totalThreads; i++){
+//        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+//        manager.addThread();
+//    }
+
+//    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+//    begin = std::chrono::steady_clock::now();
+//    for(int i=0; i<totalOps/totalThreads; i++){
+//        // Set data
+//        for(int i=0; i<totalThreads; i++){
+//            manager.renderParams[i] = params;
+//            manager.renderDatas[i] = RendererManager::RenderData(&smpl.mVTemp2, &smpl.mF);
+//        }
+//        manager.signal();
+//        manager.wait();
+//    }
+//    cout << "**DONE**" << endl;
+//    end= std::chrono::steady_clock::now();
+//    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. << " ms" << std::endl;
+//    manager.join();
+//}
+
 
 class ParticleFilterExt : public ParticleFilter{
 public:
@@ -523,6 +483,15 @@ public:
 };
 
 int main(){
+    Eigen::MatrixXf a(2,2);
+    a(0,1) = 5;
+
+    Eigen::MatrixXf b = a;
+    b(0,0) = 6;
+    cout << a << endl;
+    cout << b << endl;
+    exit(-1);
+
     ParticleFilterExt pf(600,2);
     Eigen::MatrixXf noiseVector(2,1);
     noiseVector << 2,2;

@@ -14,17 +14,16 @@ public:
     Eigen::MatrixXf mF;
     Eigen::MatrixXf mPose;
     Eigen::MatrixXf mKintreeTable;
-    Eigen::MatrixXf mJ, mJTemp1;
+    Eigen::MatrixXf mJ, mJTemp1, mJTemp2;
     Eigen::MatrixXf mTrans;
     Eigen::MatrixXf mWeights;
     Eigen::MatrixXf mWeightsT;
     Eigen::MatrixXf vertSymIdxs;
     Eigen::MatrixXf mBetas;
+    Eigen::SparseMatrix<float> mJR;
     typedef Eigen::Matrix<float, 4, 24> BlockMatrix;
     std::vector<Eigen::MatrixXf> weightedBlockMatrix1;
     std::vector<BlockMatrix> blocks;
-    std::vector<Eigen::MatrixXf> mShapeDirs;
-
     TensorD<3> mShapedDirsTensor;
 
     SMPL(){
@@ -33,6 +32,35 @@ public:
         mBetas.resize(10,1);
         mBetas.setZero();
     }
+
+//    // Copy constructor
+//    SMPL(const SMPL &smpl){
+//        mV = smpl.mV;
+//        mVTemp1 = smpl.mVTemp1;
+//        mVTemp2 = smpl.mVTemp2;
+//        mF = smpl.mF;
+//        mPose = smpl.mPose;
+//        mKintreeTable = smpl.mKintreeTable;
+//        mJ = smpl.mJ;
+//        mJTemp1 = smpl.mJTemp1;
+//        mJTemp2 = smpl.mJTemp2;
+//        mTrans = smpl.mTrans;
+//        mWeights = smpl.mWeights;
+//        mWeightsT = smpl.mWeightsT;
+//        vertSymIdxs = smpl.vertSymIdxs;
+//        mBetas = smpl.mBetas;
+//        mJR = smpl.mJR;
+//        mShapedDirsTensor = smpl.mShapedDirsTensor;
+//        for(Eigen::MatrixXf& w : weightedBlockMatrix1) w.resize(4,mV.rows());
+//    }
+
+//    SMPL clone(){
+//        SMPL smpl;
+//        smpl.mPose.resize(24,3);
+//        smpl.mPose = mPose;
+//        for(Eigen::MatrixXf& w : weightedBlockMatrix1) w.resize(4,mV.rows());
+//        return smpl;
+//    }
 
     enum Part
     {
@@ -60,6 +88,7 @@ public:
         RWRIST, // 21
         LFINGERS, // 22
         RFINGERS, // 23
+        TRANS, // 24
     };
 
     enum Shape
@@ -77,6 +106,12 @@ public:
     };
 
     void setPose(Part part, Eigen::Vector3f vec){
+        if(part == Part::TRANS){
+            mTrans(0,0) = vec(0);
+            mTrans(1,0) = vec(1);
+            mTrans(2,0) = vec(2);
+            return;
+        }
         int row = -1;
         if(part == Part::BODY) row = 0;
         if(part == Part::LLEG) row = 1;
@@ -170,11 +205,18 @@ public:
         return true;
     }
 
-    bool loadEigenFromJSON(const Json::Value& json, Eigen::MatrixXf& m, bool debug = false){
+    bool loadEigenFromJSON(const Json::Value& json, Eigen::MatrixXf& m, bool neg = false){
         // Set Shape
         int rows = json.size();
         if(!rows) { cerr << "Matrix Has no Rows" << endl; return false;}
         int cols = json[0].size();
+        if(cols == 0){
+            m.resize(rows, 1);
+            for(int i=0; i<rows; i++){
+                m(i,0) = json[i].asFloat();
+            }
+            return true;
+        }
         if(rows == 0) rows = 1;
         m.resize(rows, cols);
 
@@ -183,6 +225,7 @@ public:
             for(int i=0; i<rows; i++){
                 for(int j=0; j<cols; j++){
                     m(i,j) = json[i][j].asFloat();
+                    if(neg) m(i,j)*=-1;
                 }
             }
         }else{
@@ -190,6 +233,34 @@ public:
         }
 
         return true;
+    }
+
+    bool loadSparseFromJSON(const Json::Value& json, Eigen::SparseMatrix<float>& m, int rows, int cols, bool debug = false){
+        Eigen::MatrixXf intern;
+        loadEigenFromJSON(json, intern);
+        std::vector<Eigen::Triplet<float>> tripletList;
+        tripletList.reserve(intern.rows());
+        for(int r=1; r<intern.rows(); r++){
+            tripletList.push_back(Eigen::Triplet<float>(intern(r,0),intern(r,1),intern(r,2)));
+            //cout << intern(r,1) << endl;
+        }
+        m = Eigen::SparseMatrix<float>(rows,cols);
+        m.setFromTriplets(tripletList.begin(), tripletList.end());
+        return true;
+    }
+
+    bool loadPoseFromJSONFile(std::string filePath){
+        ifstream in(filePath);
+        Json::Value root;
+        in >> root;
+        if(!root.size()){
+            cerr << "Failed to load pose file" << endl;
+            return false;
+        }
+
+        loadEigenFromJSON(root["pose"], mPose);
+        loadEigenFromJSON(root["betas"], mBetas);
+        loadEigenFromJSON(root["trans"], mTrans);
     }
 
     bool loadModelFromJSONFile(std::string filePath){
@@ -205,8 +276,6 @@ public:
 
         loadEigenFromJSON(root["pose"], mPose);
 
-        loadEigenVecFromJSON(root["shapedirs"], mShapeDirs);
-
         loadTensorFromJSON(root["shapedirs"], mShapedDirsTensor);
 
         loadEigenFromJSON(root["f"], mF);
@@ -215,6 +284,7 @@ public:
 
         loadEigenFromJSON(root["J"], mJ);
         mJTemp1 = mJ;
+        mJTemp2 = mJ;
 
         loadEigenFromJSON(root["trans"], mTrans);
 
@@ -229,6 +299,8 @@ public:
         mWeightsT = mWeights.transpose();
 
         loadEigenFromJSON(root["vert_sym_idxs"], vertSymIdxs);
+
+        loadSparseFromJSON(root["J_regressor"], mJR, 24, mV.rows());
 
         return true;
     }
@@ -260,7 +332,7 @@ public:
         return m;
     }
 
-    bool updateModel(){
+    bool updateModel(bool jointsOnly = false){
 
         // Create parent link table
         // {1: 0, 2: 0, 3: 0, 4: 1, 5: 2, 6: 3, 7: 4, 8: 5, 9: 6, 10: 7, 11: 8, 12: 9, 13: 9, 14: 9, 15: 12, 16: 13, 17: 14, 18: 16, 19: 17, 20: 18, 21: 19, 22: 20, 23: 21}
@@ -282,24 +354,37 @@ public:
             mVTemp1(i,3) = 1;
         }
 
+        // Shape J
+        mJTemp2.row(0) = mJ.row(0);
+        mJTemp1 = mJR * mVTemp1;
+        //mJTemp1 = mJ;
+
         // Body pose
         Eigen::Matrix4f& bodyPose = globalTransforms[0];
-        bodyPose = rod(mPose.row(0), mJ.row(0));
+        bodyPose = rod(mPose.row(0), mJTemp1.row(0));
 
         // Global Transforms
         for(int i=1; i<globalTransforms.size(); i++){
             Eigen::Matrix4f& pose = globalTransforms[i];
-            pose = globalTransforms[parent[i]] * rod(mPose.row(i), mJ.row(i) - mJ.row(parent[i]));
-            mJTemp1(i,0) = pose(0,3);
-            mJTemp1(i,1) = pose(1,3);
-            mJTemp1(i,2) = pose(2,3);
+            pose = globalTransforms[parent[i]] * rod(mPose.row(i), mJTemp1.row(i) - mJTemp1.row(parent[i]));
+            mJTemp2(i,0) = pose(0,3);
+            mJTemp2(i,1) = pose(1,3);
+            mJTemp2(i,2) = pose(2,3);
         }
+
+        // Trans
+        for(int i=0; i<mJTemp2.rows(); i++){
+            mJTemp2(i,0) = mJTemp2(i,0) + mTrans(0,0);
+            mJTemp2(i,1) = mJTemp2(i,1) + mTrans(1,0);
+            mJTemp2(i,2) = mJTemp2(i,2) + mTrans(2,0);
+        }
+        if(jointsOnly) return true;
 
         // Transforms
         for(int i=0; i<transforms.size(); i++){
             Eigen::Matrix4f& pose = transforms[i];
             Eigen::Vector4f jZero;
-            jZero << mJ(i,0), mJ(i,1), mJ(i,2), 0;
+            jZero << mJTemp1(i,0), mJTemp1(i,1), mJTemp1(i,2), 0;
             Eigen::Vector4f fx = globalTransforms[i] * jZero; // Only apply rot to jVector
             Eigen::Matrix4f pack = Eigen::Matrix4f::Zero();
             pack(0,3) = fx(0);
@@ -325,7 +410,12 @@ public:
             }
         }
 
-        // Need to set final transform too!
+        // Final transform
+        for(int i=0; i<mVTemp2.rows(); i++){
+            mVTemp2(i,0) = mVTemp2(i,0) + mTrans(0,0);
+            mVTemp2(i,1) = mVTemp2(i,1) + mTrans(1,0);
+            mVTemp2(i,2) = mVTemp2(i,2) + mTrans(2,0);
+        }
 
         return true;
     }

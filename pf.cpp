@@ -42,20 +42,24 @@ Eigen::MatrixXf ParticleFilter::generateGaussian(Eigen::MatrixXf mean, float std
     std::normal_distribution<float> normalDistribution(0, std);
     for(int i=0; i<particleCount_; ++i){
         rowVector(0,i) = mean(0,i) + normalDistribution(rng_);
-        cout << std << endl;
         if(forceRange_){
             float start = rangeMatrix_(param, 0);
             float end = rangeMatrix_(param, 1);
             int count = 0;
-            while(rowVector(0,i) < start || rowVector(0,i) > end){
-                rowVector(0,i) = mean(0,i) + normalDistribution(rng_);
-                count++;
-                if(count > 500){
-                    if(rowVector(0,i) < start) rowVector(0,i) = start;
-                    if(rowVector(0,i) > end) rowVector(0,i) = end;
-                    break;
-                }
-            }
+
+            if(rowVector(0,i) < start) rowVector(0,i) = start;
+            if(rowVector(0,i) > end) rowVector(0,i) = end;
+
+//            while(rowVector(0,i) < start || rowVector(0,i) > end){
+//                rowVector(0,i) = mean(0,i) + normalDistribution(rng_);
+//                count++;
+//                if(count > 500){
+//                    if(rowVector(0,i) < start) rowVector(0,i) = start;
+//                    if(rowVector(0,i) > end) rowVector(0,i) = end;
+//                    exit(-1);
+//                    break;
+//                }
+//            }
         }
     }
     return rowVector;

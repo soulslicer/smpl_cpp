@@ -26,6 +26,16 @@ find_package(GLUT REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(GLEW REQUIRED)
+find_package(OpenPose REQUIRED)
+find_package(Caffe REQUIRED)
+
+add_definitions(-DOPENPOSE_BINARY_DIR="${CMAKE_BINARY_DIR}")
+add_definitions(-DOPENPOSE_INSTALL_DIR="${CMAKE_INSTALL_PREFIX}")
+add_definitions(-DCMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+add_definitions(-DCMAKE_MODELS="${CMAKE_SOURCE_DIR}/models/")
+
+
+include_directories(${OpenPose_INCLUDE_DIRS} ${GFLAGS_INCLUDE_DIR} ${GLOG_INCLUDE_DIR} ${OpenCV_INCLUDE_DIRS})
 
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
@@ -41,25 +51,27 @@ include_directories(
 file(GLOB test_SRC
     "renderer.cpp"
     "renderer.h"
-    "test.cpp"
     "tensor.h"
     "trackbar.h"
     "smpl.h"
     "pf.h"
     "pf.cpp"
+    "op.h"
+    "test_np.py"
     "smplify_public/code/*.py"
     "smplify_public/code/smpl_webuser/*.py"
     "smplify_public/code/smpl_webuser/hello_world/*.py"
     "smplify_public/code/lib/*.py"
 )
 
-add_executable(test ${test_SRC})
+add_executable(test "test.cpp" ${test_SRC})
 target_link_libraries(
   test
   ${OpenCV_LIBRARIES}
   ${GLUT_LIBRARY}
   ${OPENGL_LIBRARIES}
   ${GLEW_LIBRARIES}
+  ${OpenPose_LIBS} ${GFLAGS_LIBRARY} ${GLOG_LIBRARY}
   jsoncpp
   "/usr/lib/x86_64-linux-gnu/libglfw.so.3.1"
 )
@@ -71,6 +83,18 @@ target_link_libraries(
   ${GLUT_LIBRARY}
   ${OPENGL_LIBRARIES}
   ${GLEW_LIBRARIES}
+  jsoncpp
+  "/usr/lib/x86_64-linux-gnu/libglfw.so.3.1"
+)
+
+add_executable(smpl_fit "smpl_fit.cpp" "pf.h" ${test_SRC})
+target_link_libraries(
+  smpl_fit
+  ${OpenCV_LIBRARIES}
+  ${GLUT_LIBRARY}
+  ${OPENGL_LIBRARIES}
+  ${GLEW_LIBRARIES}
+  ${OpenPose_LIBS}
   jsoncpp
   "/usr/lib/x86_64-linux-gnu/libglfw.so.3.1"
 )

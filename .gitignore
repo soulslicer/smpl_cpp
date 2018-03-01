@@ -19,7 +19,9 @@
 moc_*.cpp
 qrc_*.cpp
 *-build-*
+build*
 
+models/
 build/
 bin/
 lib/

@@ -146,8 +146,17 @@ def save_model_json(fname_or_dict):
             customDict[k] = (np.array(v)).tolist()
             #print v
         if k == "J_regressor":
-            pass
-            #print "\t" + str(v.shape)
+            data = np.zeros(shape=(0,3))
+            data = np.vstack((data,np.array([1,2,3])))
+            rows, cols = v.shape
+            for r in range(0,rows):
+                for c in range(0,cols):
+                    d = v[r,c]
+                    if d != 0.0:
+                        print c
+                        data = np.vstack((data,np.array([r,c,d])))
+            print data.shape
+            customDict[k] = data.tolist()
             # No save
         if k == "betas":
             customDict[k] = (np.array(v)).tolist()
@@ -214,16 +223,17 @@ def save_model_json(fname_or_dict):
         if k == "bs_type":
             #print v
             customDict[k] = (np.array(v)).tolist()
-    with open("/home/ryaadhav/smpl_cpp/model.json", 'w') as outfile:
-        json.dump(customDict, outfile)
+    #with open("/home/ryaadhav/smpl_cpp/male_model.json", 'w') as outfile:
+    #    json.dump(customDict, outfile)
 
 tmp = 0
 def load_model(fname_or_dict, params = None):
     dd = ready_arguments(fname_or_dict)
 
     #save_model_json(fname_or_dict)
+    #stop
 
-    dd['pose'][5] = 0.78
+    #dd['pose'][5] = 0.78
 
     args = {
         'pose': dd['pose'],
@@ -239,13 +249,13 @@ def load_model(fname_or_dict, params = None):
     #global tmp
     #tmp+=0.5
     #print tmp
-    #dd['betas'][3] = 20
+    dd['betas'][3] = 20
 
     args2 = {
         'trans': dd['trans'],
         'pose': dd['pose'],
         'v_template': dd['v_template'],
-        'J': dd['J'],
+        'J': dd['J_regressor'],
         'weights': dd['weights'],
         'kintree_table': dd['kintree_table'],
         'bs_style': dd['bs_style'],
@@ -258,12 +268,14 @@ def load_model(fname_or_dict, params = None):
     }
 
     # FOR SHAPE
-    # return verts_decorated(**args2)
+    return verts_decorated(**args2)
 
     # pose, v, J, weights, kintree_table, want_Jtr, xp
     result, Jtr = verts_core(**args)
     result = result + dd['trans'].reshape((1,3))
     result.J_transformed = Jtr + dd['trans'].reshape((1,3))
+
+    #print result.J_transformed.shape
 
     for k, v in dd.items():
         setattr(result, k, v)

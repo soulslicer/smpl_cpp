@@ -2,8 +2,6 @@
 
 #define USE_COMPUTED_NORMALS
 
-namespace op
-{
 const bool LOG_VERBOSE_3D_RENDERER = false;
 
 struct OBJFace
@@ -1080,5 +1078,4 @@ void WRender3D::workOnThread()
 void WRender3D::addObject(std::shared_ptr<WObject> wObject){
     wObject->rebuild();
     wObjects.push_back(wObject);
-}
 }

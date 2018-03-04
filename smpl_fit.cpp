@@ -15,6 +15,7 @@ using namespace std;
 #include <opencv2/core/eigen.hpp>
 #include <iomanip>
 #include <chrono>
+#include <opencv2/flann/miniflann.hpp>
 
 #include <trackbar.h>
 #include <tensor.h>
@@ -47,6 +48,7 @@ void overlayImage(cv::Mat* src, cv::Mat* overlay, const cv::Point& location)
                 break;
 
             double opacity = ((double)overlay->data[fY * overlay->step + fX * overlay->channels() + 3]) / 255;
+            if(opacity == 1) opacity = 0.5;
 
             for (int c = 0; opacity > 0 && c < src->channels(); ++c)
             {
@@ -58,16 +60,130 @@ void overlayImage(cv::Mat* src, cv::Mat* overlay, const cv::Point& location)
     }
 }
 
+int maxVal(int i, int j, int k){
+    int ret = max(i,j);
+    ret = max(ret, k);
+    return ret;
+}
+
+cv::Mat performSobel(cv::Mat& img, int kernel, double scale, double delta)
+{
+    cv::Mat newImg = img.clone();
+    cv::cvtColor(img, newImg, CV_BGR2GRAY);
+
+    /// Generate grad_x and grad_y
+    cv::Mat grad_x, grad_y, grad;
+    cv::Mat abs_grad_x, abs_grad_y;
+
+    /// Gradient X
+    //Scharr( src_gray, grad_x, ddepth, 1, 0, scale, delta, BORDER_DEFAULT );
+    cv::Sobel( newImg, grad_x, CV_16S, 1, 0, kernel, scale, delta, cv::BORDER_DEFAULT );
+    cv::convertScaleAbs( grad_x, abs_grad_x );
+
+    /// Gradient Y
+    //Scharr( src_gray, grad_y, ddepth, 0, 1, scale, delta, BORDER_DEFAULT );
+    cv::Sobel( newImg, grad_y, CV_16S, 0, 1, kernel, scale, delta, cv::BORDER_DEFAULT );
+    cv::convertScaleAbs( grad_y, abs_grad_y );
+
+    /// Total Gradient (approximate)
+    cv::addWeighted( abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad );
+
+    return grad;
+}
+
+cv::Mat smartEdge(cv::Mat& rgbImage, int convType, int blurSize, int kernelSize, float scale, int intensityThreshold = 0, int valueThreshold = 255){
+    cv::Mat convImage;
+    if(convType > 0)
+        cv::cvtColor(rgbImage, convImage, convType);
+    else
+        convImage = rgbImage.clone();
+    std::vector<cv::Mat> channels(3);
+    cv::split(convImage, channels);
+
+    cv::Mat valueImage;
+    if(valueThreshold < 255){
+        cv::Mat hsvImage;
+        cv::cvtColor(rgbImage, hsvImage, CV_BGR2HSV);
+        std::vector<cv::Mat> hsvChannels(3);
+        cv::split(hsvImage, hsvChannels);
+        valueImage = hsvChannels[2].clone();
+    }
+
+    std::vector<cv::Mat> sobleChannels(3);
+    for(int i=0; i<sobleChannels.size(); i++){
+        sobleChannels[i] = channels[i].clone();
+        if(blurSize > 0) cv::GaussianBlur(sobleChannels[i], sobleChannels[i], cv::Size(blurSize,blurSize), 0, 0);
+        performSobel(sobleChannels[i], kernelSize, scale, 0);
+    }
+
+    cv::Mat combinedEdge(rgbImage.rows, rgbImage.cols, CV_8UC1, cv::Scalar(0));
+    for(int i = 0;i < combinedEdge.cols;i++){
+        for(int j = 0;j < combinedEdge.rows;j++){
+            if(valueThreshold < 255){
+                int val = valueImage.at<uint8_t>(j,i);
+                if(val > valueThreshold) continue;
+            }
+            int e0 = sobleChannels[0].at<uint8_t>(j,i);
+            int e1 = sobleChannels[1].at<uint8_t>(j,i);
+            int e2 = sobleChannels[2].at<uint8_t>(j,i);
+            if(convType == CV_BGR2HSV) e0 = 0;
+            int max = maxVal(e0,e1,e2);
+            if(max > intensityThreshold) combinedEdge.at<uint8_t>(j,i) = max;
+        }
+    }
+
+    return combinedEdge;
+}
+
+class PointsWithTree{
+public:
+    std::vector<cv::Point2f> points;
+    cv::flann::KDTreeIndexParams indexParams;
+    std::shared_ptr<cv::flann::Index> kdtree;
+
+    PointsWithTree(){
+
+    }
+
+    void setPoints(std::vector<std::vector<cv::Point>>& segContours){
+        points.clear();
+        for(int i=0; i<segContours.size(); i++){
+            for(int j=0; j<segContours[i].size(); j++){
+                points.push_back(cv::Point2f(segContours[i][j].x,segContours[i][j].y));
+            }
+        }
+        kdtree = std::shared_ptr<cv::flann::Index>(new cv::flann::Index(cv::Mat(points).reshape(1), indexParams));
+    }
+
+    cv::Point nn(cv::Point sample){
+        vector<float> query;
+        query.push_back(sample.x);
+        query.push_back(sample.y);
+        vector<int> indices;
+        vector<float> dists;
+        kdtree->knnSearch(query, indices, dists, 1);
+        return cv::Point(points[indices[0]].x,points[indices[0]].y);
+    }
+};
+
 class SMPLTracker : public ParticleFilter{
 public:
     SMPL meanSMPL;
-    cv::Mat input;
+    cv::Mat input, edgeInput;
     const float PI = M_PI;
     const float PI2 = PI*2;
     std::vector<SMPL> smplFilters;
+    RendererManager manager;
+    int totalThreads = 10;
+    bool contourFit = false;
 
-    SMPLTracker(int particleCount, int paramsCount) : ParticleFilter(particleCount, paramsCount)
+    SMPLTracker(int particleCount, int paramsCount, Renderer::Params params) : ParticleFilter(particleCount, paramsCount)
     {
+        for(int i=0; i<totalThreads; i++){
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            manager.addThread(params);
+        }
+
         meanSMPL.loadModelFromJSONFile(std::string(CMAKE_CURRENT_SOURCE_DIR) + "/male_model.json");
         meanSMPL.updateModel();
 
@@ -118,7 +234,7 @@ public:
                 -10, 10, //TX
                 -10, 10, //TY
                 -100, 100; //TZ
-        setRange(rangeMatrix);
+        //setRange(rangeMatrix);
     }
 
     void setSMPLFromPF(SMPL& smpl, Eigen::MatrixXf mean, bool jointsOnly = false){
@@ -145,22 +261,22 @@ public:
         return sqrt(pow(a.x-b.x,2) + pow(a.y-b.y,2));
     }
 
-    cv::Mat weightFunction(Eigen::MatrixXf opOutput, Renderer::Params& params){
+    cv::Mat weightFunction(Eigen::MatrixXf opOutput, Renderer::Params& params, PointsWithTree& contourTree){
         cv::Mat debugImg = input.clone();
 
         ParticleFilter::Probability pixelReprojProb(5);
+        ParticleFilter::Probability intensityProb(30);
         std::vector<SMPL>& smplFiltersSC = smplFilters;
         Eigen::MatrixXf weights = Eigen::MatrixXf::Zero(weightVector_.rows(),weightVector_.cols());
 #pragma omp parallel for shared(smplFiltersSC, weights)
         for(int i=0; i<particleCount_; i++){
             SMPL& smpl = smplFiltersSC[i];
-            setSMPLFromPF(smpl, stateMatrix_.col(i), true);
+            setSMPLFromPF(smpl, stateMatrix_.col(i), !contourFit);
 
             for(int j=0; j<24; j++){
                 Eigen::Vector3f hypoPoint(smpl.mJTemp2(j,0),smpl.mJTemp2(j,1),smpl.mJTemp2(j,2));
                 cv::Point hypoPix = project(hypoPoint, params);
-                if(j==12)
-                cv::circle(debugImg, hypoPix, 3, cv::Scalar(0,255,0), CV_FILLED);
+                //cv::circle(debugImg, hypoPix, 3, cv::Scalar(0,255,0), CV_FILLED);
 
                 int opIndex = -1;
                 if(j == 1) opIndex = 11;
@@ -181,12 +297,60 @@ public:
                 if(opIndex < 0) continue;
 
                 cv::Point truthPix(opOutput(opIndex,0),opOutput(opIndex,1));
-                cv::circle(debugImg, truthPix, 3, cv::Scalar(255,0,0), CV_FILLED);
+                //cv::circle(debugImg, truthPix, 3, cv::Scalar(255,0,0), CV_FILLED);
                 cv::line(debugImg, hypoPix, truthPix, cv::Scalar(255,0,0));
                 float reprojErr = l2distance(truthPix, hypoPix);
                 weights(i,0) += pixelReprojProb.getProbability(reprojErr).log;
             }
+
         }
+
+        if(contourFit){
+            std::vector<std::vector<cv::Point>> contours(particleCount_);
+            std::vector<std::vector<std::vector<cv::Point>>> outerContours(particleCount_);
+            for(int i=0; i<particleCount_/totalThreads; i++){
+                // Set data
+                for(int j=0; j<totalThreads; j++){
+                    int pIndex = i*totalThreads + j;
+                    SMPL& smpl = smplFilters[pIndex];
+                    manager.renderParams[j] = params;
+                    manager.renderDatas[j] = RendererManager::RenderData(&smpl.mVTemp2, &smpl.mF);
+                }
+                manager.signal();
+                manager.wait();
+                for(int j=0; j<totalThreads; j++){
+                    int pIndex = i*totalThreads + j;
+                    contours[pIndex] = manager.renderPoints[j];
+                    outerContours[pIndex] = manager.renderContours[j];
+                }
+            }
+            #pragma omp parallel for shared(contourTree, weights)
+            for(int i=0; i<particleCount_; i++){
+
+                for(int m=0; m<outerContours[i].size(); m++){
+                    for(int l=0; l<outerContours[i][m].size(); l++){
+//                        cv::Point closestP = contourTree.nn(outerContours[i][m][l]);
+//                        float reprojErr = l2distance(outerContours[i][m][l], closestP);
+//                        //cv::line(debugImg, outerContours[i][m][l], closestP, cv::Scalar(255,0,0));
+//                        weights(i,0) += pixelReprojProb.getProbability(reprojErr).log;
+                    }
+
+                    // POSSIBLE TO FORCE THE ABOVE ONE TO BE WITHIN RANGE? OR DISCARD PARTICLE?
+                }
+
+//                for(int j=0; j<contours[i].size(); j++){
+//                    cv::Point closestP = contourTree.nn(contours[i][j]);
+//                    float reprojErr = l2distance(contours[i][j], closestP);
+//                    cv::line(debugImg, contours[i][j], closestP, cv::Scalar(255,0,0));
+//                    weights(i,0) += pixelReprojProb.getProbability(reprojErr).log;
+//                    //char intensity = edgeInput.at<char>(contours[i][j]);
+//                    //cv::circle(debugImg, contours[i][j], 1, cv::Scalar(intensity));
+//                    //weights(i,0) += intensityProb.getProbability(255-intensity).log;
+//                }
+            }
+            cout << "ok" << endl;
+        }
+
         weightVector_ = weights;
 
         return debugImg;
@@ -229,125 +393,125 @@ Eigen::MatrixXf convertOPtoEigen(op::Array<float>& opOutput){
 }
 
 void testPF2(){
-    std::chrono::steady_clock::time_point begin, end;
-    glfwInit();
-    OpenPose op;
-    SMPLTracker pf(300,85);
-    Renderer renderer;
-    Renderer::Params params;
+//    std::chrono::steady_clock::time_point begin, end;
+//    glfwInit();
+//    OpenPose op;
+//    SMPLTracker pf(300,85,Renderer::Params());
+//    Renderer renderer;
+//    Renderer::Params params;
 
-    bool once = false;
-    cv::VideoCapture capture("/home/ryaadhav/Desktop/video.mp4");
-    if( !capture.isOpened() )
-        throw "Error when reading steam_avi";
-    for( ; ; )
-    {
-        cv::Mat frame;
-        capture >> frame;
-        if(frame.empty())
-            break;
-        frame = frame(cv::Rect(frame.size().width/2,0,frame.size().width/2, frame.size().height));
+//    bool once = false;
+//    cv::VideoCapture capture("/home/ryaadhav/Desktop/video.mp4");
+//    if( !capture.isOpened() )
+//        throw "Error when reading steam_avi";
+//    for( ; ; )
+//    {
+//        cv::Mat frame;
+//        capture >> frame;
+//        if(frame.empty())
+//            break;
+//        frame = frame(cv::Rect(frame.size().width/2,0,frame.size().width/2, frame.size().height));
 
-        if(!once){
-            op::Array<float> opOutput = op.forward(frame);
-            Eigen::MatrixXf opOutputEigen = convertOPtoEigen(opOutput);
+//        if(!once){
+//            op::Array<float> opOutput = op.forward(frame);
+//            Eigen::MatrixXf opOutputEigen = convertOPtoEigen(opOutput);
 
-            // Renderer
-            glfwInit();
-            params.cameraSize = frame.size();
-            params.fl = 500.;
-            params.cx = params.cameraSize.width/2;
-            params.cy = params.cameraSize.height/2;
-            params.tx = 0;
-            params.ty = 0;
-            params.tz = 0;
-            params.rx = 0;
-            params.ry = 0;
-            params.rz = 0;
-            renderer.setCameraParams(params);
-            renderer.startOnThread("thread");
-            once = true;
+//            // Renderer
+//            glfwInit();
+//            params.cameraSize = frame.size();
+//            params.fl = 500.;
+//            params.cx = params.cameraSize.width/2;
+//            params.cy = params.cameraSize.height/2;
+//            params.tx = 0;
+//            params.ty = 0;
+//            params.tz = 0;
+//            params.rx = 0;
+//            params.ry = 0;
+//            params.rz = 0;
+//            renderer.setCameraParams(params);
+//            renderer.startOnThread("thread");
+//            once = true;
 
-            // Noise
-            Eigen::MatrixXf noiseVector(85,1);
-            Eigen::MatrixXf initialVal(85,2);
-            for(int i=0; i<24; i++){
-                initialVal(i*3 + 0, 0) = pf.meanSMPL.mPose(i,0);
-                initialVal(i*3 + 1, 0) = pf.meanSMPL.mPose(i,1);
-                initialVal(i*3 + 2, 0) = pf.meanSMPL.mPose(i,2);
-            }
-            for(int i=0; i<10; i++){
-                initialVal(72+i,0) = pf.meanSMPL.mBetas(i,0);
-            }
-            for(int i=0; i<3; i++){
-                initialVal(82+i,0) = pf.meanSMPL.mTrans(i,0);
-            }
-            for(int i=0; i<72; i++){
-                //initialVal(i,0) += 0.1; // Add noise
-                initialVal(i,1) = 0.01;
-                noiseVector(i,0) = 0.02;
-            }
-            for(int i=72; i<82; i++){
-                //initialVal(i,0) = 0;
-                initialVal(i,1) = 0.01;
-                noiseVector(i,0) = 0.005;
-            }
-            for(int i=82; i<85; i++){
-                //initialVal(i,0) = 0;
-                initialVal(i,1) = 0.01;
-                noiseVector(i,0) = 0.01;
-            }
-            initialVal(0,0) = 3.14;
-            //initialVal(1,0) = -0.14;
-            //initialVal(2,0) = 2.12;
-            //initialVal(82,0) = -0.5;
-            initialVal(83,0) = 0.2;
-            initialVal(84,0) += 3.2;
-            pf.initGauss(initialVal);
-            pf.setNoise(noiseVector);
+//            // Noise
+//            Eigen::MatrixXf noiseVector(85,1);
+//            Eigen::MatrixXf initialVal(85,2);
+//            for(int i=0; i<24; i++){
+//                initialVal(i*3 + 0, 0) = pf.meanSMPL.mPose(i,0);
+//                initialVal(i*3 + 1, 0) = pf.meanSMPL.mPose(i,1);
+//                initialVal(i*3 + 2, 0) = pf.meanSMPL.mPose(i,2);
+//            }
+//            for(int i=0; i<10; i++){
+//                initialVal(72+i,0) = pf.meanSMPL.mBetas(i,0);
+//            }
+//            for(int i=0; i<3; i++){
+//                initialVal(82+i,0) = pf.meanSMPL.mTrans(i,0);
+//            }
+//            for(int i=0; i<72; i++){
+//                //initialVal(i,0) += 0.1; // Add noise
+//                initialVal(i,1) = 0.01;
+//                noiseVector(i,0) = 0.02;
+//            }
+//            for(int i=72; i<82; i++){
+//                //initialVal(i,0) = 0;
+//                initialVal(i,1) = 0.01;
+//                noiseVector(i,0) = 0.005;
+//            }
+//            for(int i=82; i<85; i++){
+//                //initialVal(i,0) = 0;
+//                initialVal(i,1) = 0.01;
+//                noiseVector(i,0) = 0.01;
+//            }
+//            initialVal(0,0) = 3.14;
+//            //initialVal(1,0) = -0.14;
+//            //initialVal(2,0) = 2.12;
+//            //initialVal(82,0) = -0.5;
+//            initialVal(83,0) = 0.2;
+//            initialVal(84,0) += 3.2;
+//            pf.initGauss(initialVal);
+//            pf.setNoise(noiseVector);
 
-            opOutput = op.forward(frame);
-            opOutputEigen = convertOPtoEigen(opOutput);
+//            opOutput = op.forward(frame);
+//            opOutputEigen = convertOPtoEigen(opOutput);
 
-            cout << opOutput << endl;
+//            cout << opOutput << endl;
 
-            pf.input = frame.clone();
-            for(int i=0; i<100; i++){
-                pf.update();
-                cv::Mat debugImg = pf.weightFunction(opOutputEigen, params);
+//            pf.input = frame.clone();
+//            for(int i=0; i<100; i++){
+//                pf.update();
+//                cv::Mat debugImg = pf.weightFunction(opOutputEigen, params);
 
-                pf.resampleParticles();
-                pf.computeMeanSMPL();
-                cv::Mat out = renderer.draw(pf.meanSMPL.mVTemp2, pf.meanSMPL.mF);
-                overlayImage(&debugImg, &out, cv::Point());
-                cv::imshow("out",debugImg);
-                cv::waitKey(15);
-            }
+//                pf.resampleParticles();
+//                pf.computeMeanSMPL();
+//                cv::Mat out = renderer.draw(pf.meanSMPL.mVTemp2, pf.meanSMPL.mF);
+//                overlayImage(&debugImg, &out, cv::Point());
+//                cv::imshow("out",debugImg);
+//                cv::waitKey(15);
+//            }
 
-            continue;
-        }
+//            continue;
+//        }
 
-        //cv::Mat debugImg = frame.clone();
-        begin = std::chrono::steady_clock::now();
-        op::Array<float> opOutput = op.forward(frame);
-        Eigen::MatrixXf opOutputEigen = convertOPtoEigen(opOutput);
-        end= std::chrono::steady_clock::now();
-        std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. << " ms" << std::endl;
+//        //cv::Mat debugImg = frame.clone();
+//        begin = std::chrono::steady_clock::now();
+//        op::Array<float> opOutput = op.forward(frame);
+//        Eigen::MatrixXf opOutputEigen = convertOPtoEigen(opOutput);
+//        end= std::chrono::steady_clock::now();
+//        std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. << " ms" << std::endl;
 
-        pf.input = frame.clone();
-        pf.update();
-        cv::Mat debugImg = pf.weightFunction(opOutputEigen, params);
+//        pf.input = frame.clone();
+//        pf.update();
+//        cv::Mat debugImg = pf.weightFunction(opOutputEigen, params);
 
-        pf.resampleParticles();
-        pf.computeMeanSMPL();
+//        pf.resampleParticles();
+//        pf.computeMeanSMPL();
 
-        cv::Mat out = renderer.draw(pf.meanSMPL.mVTemp2, pf.meanSMPL.mF);
-        overlayImage(&debugImg, &out, cv::Point());
+//        cv::Mat out = renderer.draw(pf.meanSMPL.mVTemp2, pf.meanSMPL.mF);
+//        overlayImage(&debugImg, &out, cv::Point());
 
-        cv::imshow("out",debugImg);
-        cv::waitKey(15);
-    }
-    cv::waitKey(0); // key press to close window
+//        cv::imshow("out",debugImg);
+//        cv::waitKey(15);
+//    }
+//    cv::waitKey(0); // key press to close window
 }
 
 void testPF(){
@@ -355,10 +519,22 @@ void testPF(){
 
     // OP
     cv::Mat im1 = cv::imread(std::string(CMAKE_CURRENT_SOURCE_DIR) + "/data/00001_image.png");
-    cout << im1.size() << endl;
+    cv::Mat edge = cv::imread(std::string(CMAKE_CURRENT_SOURCE_DIR) + "/data/00001_edge.png",0);
+    cv::Mat seg = cv::imread(std::string(CMAKE_CURRENT_SOURCE_DIR) + "/data/im0002_segmentation.png",0);
+    cout << im1.size() << endl;    
+    cv::resize(im1, im1, cv::Size(0,0),3,3);
+    cv::resize(edge, edge, cv::Size(0,0),3,3);
+    cv::resize(seg, seg, cv::Size(0,0),3,3);
+
+    std::vector<std::vector<cv::Point>> segContours;
+    RendererManager::findContoursCV(seg, segContours);
+    PointsWithTree contourPoints;
+    contourPoints.setPoints(segContours);
+
+
+//    cv::Mat edge = smartEdge(im1, -1, 5, 5, 0.3, 100);
 //    cv::Mat im1 = cv::imread("/home/raaj/Desktop/Ballet.jpg");
 //    cv::resize(im1, im1, cv::Size(145, 201));
-    cv::resize(im1, im1, cv::Size(0,0),3,3);
     OpenPose op;
     op::Array<float> opOutput = op.forward(im1);
     Eigen::MatrixXf opOutputEigen = convertOPtoEigen(opOutput);
@@ -380,8 +556,9 @@ void testPF(){
     renderer.setCameraParams(params);
     renderer.startOnThread("thread");
 
-    SMPLTracker pf(300,85);
+    SMPLTracker pf(600,85,params);
     pf.input = im1.clone();
+    pf.edgeInput = edge.clone();
     pf.meanSMPL.loadPoseFromJSONFile(std::string(CMAKE_CURRENT_SOURCE_DIR) + "/data/00001_body.json");
     pf.meanSMPL.updateModel();
 
@@ -389,7 +566,7 @@ void testPF(){
     Eigen::MatrixXf noiseVector(85,1);
     Eigen::MatrixXf initialVal = Eigen::MatrixXf::Zero(85,2);
 
-    for(int i=0; i<0; i++){
+    for(int i=0; i<24; i++){
         initialVal(i*3 + 0, 0) = pf.meanSMPL.mPose(i,0);
         initialVal(i*3 + 1, 0) = pf.meanSMPL.mPose(i,1);
         initialVal(i*3 + 2, 0) = pf.meanSMPL.mPose(i,2);
@@ -414,14 +591,11 @@ void testPF(){
     for(int i=82; i<85; i++){
         //initialVal(i,0) += 0.5; // Noise
         initialVal(i,1) = 0.01;
-        noiseVector(i,0) = 0.005;
+        noiseVector(i,0) = 0.01;
     }
 
-//    noiseVector(0,0) = 0;
-//    noiseVector(1,0) = 0;
-//    noiseVector(2,0) = 0;
+    //initialVal(72+0,0) -= 3;
 
-    //initialVal(0,0) += 0.3;
     //initialVal(0,0) += 3.14;
     //initialVal(82,0) = 0.02;
     //initialVal(83,0) = 0.08;
@@ -432,13 +606,16 @@ void testPF(){
     cv::imshow("out",im1);
     cv::waitKey(1000);
 
+    int count = 0;
     while(1){
+        count++;
+        if(count > 3) pf.contourFit = true;
 
         begin = std::chrono::steady_clock::now();
         pf.update();
 
         //cv::Mat debugImg = pf.input.clone();
-        cv::Mat debugImg = pf.weightFunction(opOutputEigen, params);
+        cv::Mat debugImg = pf.weightFunction(opOutputEigen, params, contourPoints);
         end= std::chrono::steady_clock::now();
         std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. << " ms" << std::endl;
 

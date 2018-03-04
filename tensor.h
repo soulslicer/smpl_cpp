@@ -3,6 +3,8 @@
 
 #include <eigen3/Eigen/Eigen>
 #include <iostream>
+#include <iomanip>
+#include <numeric>
 using namespace std;
 
 template<int T>

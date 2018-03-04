@@ -7,6 +7,7 @@
 #include <jsoncpp/json/value.h>
 #include <jsoncpp/json/reader.h>
 #include <tensor.h>
+#include <fstream>
 
 class SMPL{
 public:

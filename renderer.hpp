@@ -19,6 +19,8 @@
 #include <functional>
 #include <eigen3/Eigen/Eigen>
 #include <iostream>
+#include <thread>
+#include <chrono>
 
 #include <mutex>
 #include <condition_variable>
@@ -178,7 +180,7 @@ public:
     void startOnThread(std::string name){
         // OpenGL - Initialization
         std::cout << "Initializing.." << std::endl;
-        glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
+        //glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
         window_slave = glfwCreateWindow(renderWidth, renderHeight, name.c_str(), 0, 0);
         glfwMakeContextCurrent(window_slave);
         glewInit();

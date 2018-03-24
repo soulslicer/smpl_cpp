@@ -48,9 +48,9 @@ int main(int argc, char *argv[])
 
     SMPL smpl;
     smpl.loadModelFromJSONFile(std::string(CMAKE_CURRENT_SOURCE_DIR) + "/male_model.json");
-    std::cout.setstate(std::ios_base::failbit);
+    //std::cout.setstate(std::ios_base::failbit);
     smpl.updateModel();
-    std::cout.clear();
+    //std::cout.clear();
 
     //smpl.loadPoseFromJSONFile(std::string(CMAKE_CURRENT_SOURCE_DIR) + "/data/00001_body.json");
     //smpl.setShape(SMPL::S3, 20);

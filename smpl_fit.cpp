@@ -179,10 +179,10 @@ public:
 
     SMPLTracker(int particleCount, int paramsCount, Renderer::Params params) : ParticleFilter(particleCount, paramsCount)
     {
-        for(int i=0; i<totalThreads; i++){
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            manager.addThread(params);
-        }
+//        for(int i=0; i<totalThreads; i++){
+//            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+//            manager.addThread(params);
+//        }
 
         meanSMPL.loadModelFromJSONFile(std::string(CMAKE_CURRENT_SOURCE_DIR) + "/male_model.json");
         meanSMPL.updateModel();
@@ -329,13 +329,11 @@ public:
 
                 for(int m=0; m<outerContours[i].size(); m++){
                     for(int l=0; l<outerContours[i][m].size(); l++){
-//                        cv::Point closestP = contourTree.nn(outerContours[i][m][l]);
-//                        float reprojErr = l2distance(outerContours[i][m][l], closestP);
-//                        //cv::line(debugImg, outerContours[i][m][l], closestP, cv::Scalar(255,0,0));
-//                        weights(i,0) += pixelReprojProb.getProbability(reprojErr).log;
+                        cv::Point closestP = contourTree.nn(outerContours[i][m][l]);
+                        float reprojErr = l2distance(outerContours[i][m][l], closestP);
+                        //cv::line(debugImg, outerContours[i][m][l], closestP, cv::Scalar(255,0,0));
+                        weights(i,0) += pixelReprojProb.getProbability(reprojErr).log;
                     }
-
-                    // POSSIBLE TO FORCE THE ABOVE ONE TO BE WITHIN RANGE? OR DISCARD PARTICLE?
                 }
 
 //                for(int j=0; j<contours[i].size(); j++){
@@ -392,128 +390,6 @@ Eigen::MatrixXf convertOPtoEigen(op::Array<float>& opOutput){
     return eigen;
 }
 
-void testPF2(){
-//    std::chrono::steady_clock::time_point begin, end;
-//    glfwInit();
-//    OpenPose op;
-//    SMPLTracker pf(300,85,Renderer::Params());
-//    Renderer renderer;
-//    Renderer::Params params;
-
-//    bool once = false;
-//    cv::VideoCapture capture("/home/ryaadhav/Desktop/video.mp4");
-//    if( !capture.isOpened() )
-//        throw "Error when reading steam_avi";
-//    for( ; ; )
-//    {
-//        cv::Mat frame;
-//        capture >> frame;
-//        if(frame.empty())
-//            break;
-//        frame = frame(cv::Rect(frame.size().width/2,0,frame.size().width/2, frame.size().height));
-
-//        if(!once){
-//            op::Array<float> opOutput = op.forward(frame);
-//            Eigen::MatrixXf opOutputEigen = convertOPtoEigen(opOutput);
-
-//            // Renderer
-//            glfwInit();
-//            params.cameraSize = frame.size();
-//            params.fl = 500.;
-//            params.cx = params.cameraSize.width/2;
-//            params.cy = params.cameraSize.height/2;
-//            params.tx = 0;
-//            params.ty = 0;
-//            params.tz = 0;
-//            params.rx = 0;
-//            params.ry = 0;
-//            params.rz = 0;
-//            renderer.setCameraParams(params);
-//            renderer.startOnThread("thread");
-//            once = true;
-
-//            // Noise
-//            Eigen::MatrixXf noiseVector(85,1);
-//            Eigen::MatrixXf initialVal(85,2);
-//            for(int i=0; i<24; i++){
-//                initialVal(i*3 + 0, 0) = pf.meanSMPL.mPose(i,0);
-//                initialVal(i*3 + 1, 0) = pf.meanSMPL.mPose(i,1);
-//                initialVal(i*3 + 2, 0) = pf.meanSMPL.mPose(i,2);
-//            }
-//            for(int i=0; i<10; i++){
-//                initialVal(72+i,0) = pf.meanSMPL.mBetas(i,0);
-//            }
-//            for(int i=0; i<3; i++){
-//                initialVal(82+i,0) = pf.meanSMPL.mTrans(i,0);
-//            }
-//            for(int i=0; i<72; i++){
-//                //initialVal(i,0) += 0.1; // Add noise
-//                initialVal(i,1) = 0.01;
-//                noiseVector(i,0) = 0.02;
-//            }
-//            for(int i=72; i<82; i++){
-//                //initialVal(i,0) = 0;
-//                initialVal(i,1) = 0.01;
-//                noiseVector(i,0) = 0.005;
-//            }
-//            for(int i=82; i<85; i++){
-//                //initialVal(i,0) = 0;
-//                initialVal(i,1) = 0.01;
-//                noiseVector(i,0) = 0.01;
-//            }
-//            initialVal(0,0) = 3.14;
-//            //initialVal(1,0) = -0.14;
-//            //initialVal(2,0) = 2.12;
-//            //initialVal(82,0) = -0.5;
-//            initialVal(83,0) = 0.2;
-//            initialVal(84,0) += 3.2;
-//            pf.initGauss(initialVal);
-//            pf.setNoise(noiseVector);
-
-//            opOutput = op.forward(frame);
-//            opOutputEigen = convertOPtoEigen(opOutput);
-
-//            cout << opOutput << endl;
-
-//            pf.input = frame.clone();
-//            for(int i=0; i<100; i++){
-//                pf.update();
-//                cv::Mat debugImg = pf.weightFunction(opOutputEigen, params);
-
-//                pf.resampleParticles();
-//                pf.computeMeanSMPL();
-//                cv::Mat out = renderer.draw(pf.meanSMPL.mVTemp2, pf.meanSMPL.mF);
-//                overlayImage(&debugImg, &out, cv::Point());
-//                cv::imshow("out",debugImg);
-//                cv::waitKey(15);
-//            }
-
-//            continue;
-//        }
-
-//        //cv::Mat debugImg = frame.clone();
-//        begin = std::chrono::steady_clock::now();
-//        op::Array<float> opOutput = op.forward(frame);
-//        Eigen::MatrixXf opOutputEigen = convertOPtoEigen(opOutput);
-//        end= std::chrono::steady_clock::now();
-//        std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. << " ms" << std::endl;
-
-//        pf.input = frame.clone();
-//        pf.update();
-//        cv::Mat debugImg = pf.weightFunction(opOutputEigen, params);
-
-//        pf.resampleParticles();
-//        pf.computeMeanSMPL();
-
-//        cv::Mat out = renderer.draw(pf.meanSMPL.mVTemp2, pf.meanSMPL.mF);
-//        overlayImage(&debugImg, &out, cv::Point());
-
-//        cv::imshow("out",debugImg);
-//        cv::waitKey(15);
-//    }
-//    cv::waitKey(0); // key press to close window
-}
-
 void testPF(){
     std::chrono::steady_clock::time_point begin, end;
 
@@ -531,10 +407,6 @@ void testPF(){
     PointsWithTree contourPoints;
     contourPoints.setPoints(segContours);
 
-
-//    cv::Mat edge = smartEdge(im1, -1, 5, 5, 0.3, 100);
-//    cv::Mat im1 = cv::imread("/home/raaj/Desktop/Ballet.jpg");
-//    cv::resize(im1, im1, cv::Size(145, 201));
     OpenPose op;
     op::Array<float> opOutput = op.forward(im1);
     Eigen::MatrixXf opOutputEigen = convertOPtoEigen(opOutput);
@@ -556,7 +428,7 @@ void testPF(){
     renderer.setCameraParams(params);
     renderer.startOnThread("thread");
 
-    SMPLTracker pf(600,85,params);
+    SMPLTracker pf(200,85,params);
     pf.input = im1.clone();
     pf.edgeInput = edge.clone();
     pf.meanSMPL.loadPoseFromJSONFile(std::string(CMAKE_CURRENT_SOURCE_DIR) + "/data/00001_body.json");
@@ -579,7 +451,7 @@ void testPF(){
     }
 
     for(int i=0; i<72; i++){
-        //initialVal(i,0) += 0.1; // Add noise
+        initialVal(i,0) += 0.1; // Add noise
         initialVal(i,1) = 0.01;
         noiseVector(i,0) = 0.01;
     }
@@ -589,13 +461,11 @@ void testPF(){
         noiseVector(i,0) = 0.01;
     }
     for(int i=82; i<85; i++){
-        //initialVal(i,0) += 0.5; // Noise
+        initialVal(i,0) += 0.5; // Noise
         initialVal(i,1) = 0.01;
         noiseVector(i,0) = 0.01;
     }
-
     //initialVal(72+0,0) -= 3;
-
     //initialVal(0,0) += 3.14;
     //initialVal(82,0) = 0.02;
     //initialVal(83,0) = 0.08;
@@ -609,7 +479,7 @@ void testPF(){
     int count = 0;
     while(1){
         count++;
-        if(count > 3) pf.contourFit = true;
+        //if(count > 3) pf.contourFit = true;
 
         begin = std::chrono::steady_clock::now();
         pf.update();

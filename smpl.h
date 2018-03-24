@@ -306,7 +306,7 @@ public:
         return true;
     }
 
-    Eigen::Matrix4f rod(const Eigen::Vector3f& v, const Eigen::Vector3f& t){
+    Eigen::Matrix4f rod(const Eigen::VectorXf& v, const Eigen::VectorXf& t){
         Eigen::Matrix4f m;
         cv::Mat src(cv::Size(1,3),CV_32FC1,cv::Scalar(0));
         src.at<float>(0) = v(0);

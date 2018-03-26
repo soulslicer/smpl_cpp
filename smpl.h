@@ -341,6 +341,8 @@ public:
         for(int i=1; i<mKintreeTable.cols(); i++){
             int key = mKintreeTable(1,i); int val = mKintreeTable(0,i);
             parent[key] = val;
+
+            cout << "{" << key << "," << val << "},";
         }
 
         std::vector<Eigen::Matrix4f> globalTransforms(24);
@@ -359,6 +361,8 @@ public:
         mJTemp2.row(0) = mJ.row(0);
         mJTemp1 = mJR * mVTemp1;
         //mJTemp1 = mJ;
+
+        cout << mJTemp1 << endl;
 
         // Body pose
         Eigen::Matrix4f& bodyPose = globalTransforms[0];

@@ -44,12 +44,12 @@ int main(int argc, char *argv[])
 
     bool active = false;
     bool track = true;
-    bool joints = false;
+    bool joints = true;
 
     SMPL smpl;
     smpl.loadModelFromJSONFile(std::string(CMAKE_CURRENT_SOURCE_DIR) + "/male_model.json");
     //std::cout.setstate(std::ios_base::failbit);
-    smpl.updateModel();
+    smpl.updateModel(joints);
     //std::cout.clear();
 
     //smpl.loadPoseFromJSONFile(std::string(CMAKE_CURRENT_SOURCE_DIR) + "/data/00001_body.json");
@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
     //smpl.setPose(SMPL::LLEG, Eigen::Vector3f(M_PI/180. * 20, M_PI/180. * 20, M_PI/180. * 20));
 
     begin = std::chrono::steady_clock::now();
-    smpl.updateModel();
+    smpl.updateModel(joints);
     end= std::chrono::steady_clock::now();
     std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. << " ms" << std::endl;
 
@@ -79,9 +79,11 @@ int main(int argc, char *argv[])
     std::cout << "Time difference Setup = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. <<std::endl;
     std::shared_ptr<WObject> wObject1 = std::make_shared<WObject>();
     //wObject1->loadOBJFile("/home/raaj/project/","hello_smpl.obj","");
+
     wObject1->loadEigenData(smpl.mVTemp2, smpl.mF);
     wObject1->print();
     render.addObject(wObject1);
+    if(!joints)
     wObject1->rebuild(WObject::RENDER_POINTS);
     //wObject1->rebuildVArr(op::WObject::RENDER_NORMAL);
 
@@ -115,8 +117,9 @@ int main(int argc, char *argv[])
             smpl.setShape(SMPL::S3, currB);
 
             begin = std::chrono::steady_clock::now();
-            smpl.updateModel();
+            smpl.updateModel(joints);
             wObject1->loadEigenData(smpl.mVTemp2, smpl.mF);
+            if(!joints)
             wObject1->rebuildVArr(WObject::RENDER_NORMAL);
             end= std::chrono::steady_clock::now();
             std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. <<std::endl;
@@ -134,10 +137,11 @@ int main(int argc, char *argv[])
             trackManager.spin();
             if(trackManager.changeOccured()){
                 cout << "[ " << trackManager.getTrackValue("LLEG_X") << " " << trackManager.getTrackValue("LLEG_Y") << " " << trackManager.getTrackValue("LLEG_Z") << " ]" << endl;
-                smpl.setPose(SMPL::BODY, Eigen::Vector3f(trackManager.getTrackValue("LLEG_X"), trackManager.getTrackValue("LLEG_Y"), trackManager.getTrackValue("LLEG_Z")));
+                smpl.setPose(SMPL::LLFOOT, Eigen::Vector3f(trackManager.getTrackValue("LLEG_X"), trackManager.getTrackValue("LLEG_Y"), trackManager.getTrackValue("LLEG_Z")));
                 //smpl.setShape(SMPL::S0,trackManager.getTrackValue("LLEG_X"));
-                smpl.updateModel();
+                smpl.updateModel(joints);
                 wObject1->loadEigenData(smpl.mVTemp2, smpl.mF);
+                if(!joints)
                 wObject1->rebuild(WObject::RENDER_NORMAL);
 
                 if(joints){

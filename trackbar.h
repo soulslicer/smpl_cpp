@@ -1,6 +1,8 @@
 #ifndef TRACKBAR_HPP
 #define TRACKBAR_HPP
 
+#include <opencv2/opencv.hpp>
+
 class DoubleTrackManager{
     struct DoubleTrack{
     public:
@@ -11,12 +13,12 @@ class DoubleTrackManager{
         double curr_value = 0;
         bool change = false;
 
-        void setup(const std::string& field_name, const std::string& window_name, double max_value, double default_value = 0, unsigned precision = 100){
+        void setup(const std::string& field_name, const std::string& window_name, double max_value, double start_value = 0, double default_value = 0, unsigned precision = 100){
             int_value = default_value * precision;
             cv::createTrackbar(field_name, window_name, &int_value, max_value * precision, DoubleTrack::callback, this);
             this->precision = precision;
             this->max_value = max_value;
-            cv::setTrackbarPos(field_name, window_name, (int)((max_value * precision)/2));
+            cv::setTrackbarPos(field_name, window_name, (int)((max_value * precision)/2) + (int)(start_value*precision));
         }
 
         double getCurrVal(){
@@ -49,9 +51,9 @@ public:
         cv::namedWindow(winname);
     }
 
-    void addTrack(std::string name, double maxVal){
+    void addTrack(std::string name, double maxVal, double startVal = 0){
         tracks[name] = DoubleTrack();
-        tracks[name].setup(name, winname, maxVal);
+        tracks[name].setup(name, winname, maxVal, startVal);
     }
 
     double getTrackValue(std::string name){
@@ -59,10 +61,14 @@ public:
     }
 
     bool changeOccured(){
+        bool change = false;
         for (auto& kv : tracks) {
-            if(kv.second.changeOccured()) return true;
+            if(kv.second.changeOccured()) change = true;
         }
-        return false;
+        for (auto& kv : tracks) {
+            kv.second.change = false;
+        }
+        return change;
     }
 
     void spin(int ms = 15){

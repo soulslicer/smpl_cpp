@@ -251,6 +251,13 @@ void WObject::rebuild(int renderType, float param)
             glVertex3fv( object.vertices.at(i).coords );
         }
         glEnd();
+        for (auto& kv : kintree) {
+            int parent = kv.second; int child = kv.first;
+            glBegin(GL_LINES);
+            glVertex3fv(object.vertices.at(child+1).coords);
+            glVertex3fv(object.vertices.at(parent+1).coords);
+            glEnd();
+        }
     }else{
         for ( int i=0; i<object.faces.size(); ++i ) // Each face
         {
@@ -322,6 +329,11 @@ bool WObject::clearOBJFile(bool clearObject){
     for(int i=0; i<texKeys.size(); i++){
         releaseTexture(texKeys[i]);
     }
+}
+
+bool WObject::loadKT(std::map<int, int> kintree){
+    this->kintree = kintree;
+    return true;
 }
 
 bool WObject::loadEigenData(const Eigen::MatrixXf& v, const Eigen::MatrixXf& f){

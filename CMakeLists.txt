@@ -76,18 +76,19 @@ target_link_libraries(
   ${GLEW_LIBRARIES}
   ${OpenPose_LIBS} ${GFLAGS_LIBRARY} ${GLOG_LIBRARY}
   jsoncpp
-  "/usr/lib/x86_64-linux-gnu/libglfw.so.3.1"
+  "/usr/lib/x86_64-linux-gnu/libglfw.so.3.0"
 )
 
-add_executable(test2 "test2.cpp" "pf.h" "pf.cpp")
+add_executable(test2 "test2.cpp" ${test_SRC})
 target_link_libraries(
-  test2
-  ${OpenCV_LIBRARIES}
-  ${GLUT_LIBRARY}
-  ${OPENGL_LIBRARIES}
-  ${GLEW_LIBRARIES}
-  jsoncpp
-  "/usr/lib/x86_64-linux-gnu/libglfw.so.3.1"
+    test2
+    ${OpenCV_LIBRARIES}
+    ${GLUT_LIBRARY}
+    ${OPENGL_LIBRARIES}
+    ${GLEW_LIBRARIES}
+    ${OpenPose_LIBS} ${GFLAGS_LIBRARY} ${GLOG_LIBRARY}
+    jsoncpp
+    "/usr/lib/x86_64-linux-gnu/libglfw.so.3.0"
 )
 
 add_executable(smpl_fit "smpl_fit.cpp" "pf.h" ${test_SRC})
@@ -99,7 +100,7 @@ target_link_libraries(
   ${GLEW_LIBRARIES}
   ${OpenPose_LIBS}
   jsoncpp
-  "/usr/lib/x86_64-linux-gnu/libglfw.so.3.1"
+  "/usr/lib/x86_64-linux-gnu/libglfw.so.3.0"
   -lboost_system
 )
 

@@ -50,6 +50,7 @@ public:
     void print();
     bool loadOBJFile( const std::string& data_path, const std::string& mesh_filename, const std::string& material_filename );
     bool loadEigenData(const Eigen::MatrixXf& v, const Eigen::MatrixXf& f);
+    bool loadKT(std::map<int, int> kintree);
     void render();
     void rebuild(int renderType = WObject::RENDER_NORMAL, float param = 1);
     void rebuildVArr(int renderType = WObject::RENDER_NORMAL, float param = 1);
@@ -59,6 +60,7 @@ private:
     std::string mCurrentMaterial;
     std::shared_ptr<OBJObject> mObject;
     std::map<std::string,GLuint> textures;
+    std::map<int, int> kintree;
     GLuint vao;
     GLuint vbuffer;
     GLuint listId;

@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
 
     bool active = false;
     bool track = true;
-    bool joints = true;
+    bool joints = false;
 
     SMPL smpl;
     smpl.loadModelFromJSONFile(std::string(CMAKE_CURRENT_SOURCE_DIR) + "/male_model.json");

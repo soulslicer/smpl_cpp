@@ -36,6 +36,7 @@ public:
 
     Eigen::MatrixXf theta = Eigen::MatrixXf::Zero(bodyParts,3);
     Eigen::MatrixXf beta = Eigen::MatrixXf::Zero(10,1);
+    Eigen::MatrixXf mTrans = Eigen::MatrixXf::Zero(3,1);
     std::map<int,int> kintree;
     StickMan(){
         beta << 0.3,0.05,0.3,0.3,0.2,0.2,0.2,0.2,0.1,0.1;
@@ -95,6 +96,13 @@ public:
             mJ2(i,0) = pose(0,3);
             mJ2(i,1) = pose(1,3);
             mJ2(i,2) = pose(2,3);
+        }
+
+        // Trans
+        for(int i=0; i<mJ2.rows(); i++){
+            mJ2(i,0) = mJ2(i,0) + mTrans(0,0);
+            mJ2(i,1) = mJ2(i,1) + mTrans(1,0);
+            mJ2(i,2) = mJ2(i,2) + mTrans(2,0);
         }
 
         return mJ2;

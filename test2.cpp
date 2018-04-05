@@ -86,8 +86,12 @@ int main(int argc, char *argv[])
     std::chrono::steady_clock::time_point begin, end;
 
     StickMan sm = StickMan();
+    begin = std::chrono::steady_clock::now();
     Eigen::MatrixXf mvTemp = sm.forward();
+    end= std::chrono::steady_clock::now();
+    std::cout << "Time difference Setup = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. <<std::endl;
     Eigen::MatrixXf mF;
+    exit(-1);
 
     // Trackbar
     DoubleTrackManager trackManager;
@@ -154,9 +158,9 @@ int main(int argc, char *argv[])
             // 12 - LSHOULDER
             // 13 - RSHOULDER
 
-//            int r = 12;
-//            sm.theta.row(r) = Eigen::Vector3f(trackManager.getTrackValue("CHIPX"),trackManager.getTrackValue("CHIPY"),trackManager.getTrackValue("CHIPZ"));
-//            cout << sm.theta.row(r) * 180/M_PI << endl;
+            int r = 0;
+            sm.theta.row(r) = Eigen::Vector3f(trackManager.getTrackValue("CHIPX"),trackManager.getTrackValue("CHIPY"),trackManager.getTrackValue("CHIPZ"));
+            cout << sm.theta.row(r) << endl;
 
 
 //            Eigen::AngleAxisf aa = euler_to_aa(sm.theta(r,0),sm.theta(r,1),sm.theta(r,2));
@@ -179,7 +183,7 @@ int main(int argc, char *argv[])
 //            sm.theta.row(14) = Eigen::Vector3f(0,0,trackManager.getTrackValue("LELBOW14"));
 //            sm.theta.row(15) = Eigen::Vector3f(0,0,trackManager.getTrackValue("RELBOW15"));
 
-            sm.beta(2,0) = trackManager.getTrackValue("CHIPX");
+//            sm.beta(9,0) = trackManager.getTrackValue("CHIPX");
 //            sm.beta(1,0) = trackManager.getTrackValue("B1");
 //            sm.beta(2,0) = trackManager.getTrackValue("B2");
 

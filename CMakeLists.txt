@@ -27,7 +27,7 @@ find_package(OpenGL REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(OpenPose REQUIRED)
-#find_package(CUDA REQUIRED)
+find_package(CUDA REQUIRED)
 find_package(Caffe REQUIRED)
 
 add_definitions(-DOPENPOSE_BINARY_DIR="${CMAKE_BINARY_DIR}")
@@ -77,7 +77,7 @@ target_link_libraries(
   ${GLEW_LIBRARIES}
   ${OpenPose_LIBS} ${GFLAGS_LIBRARY} ${GLOG_LIBRARY}
   jsoncpp
-  "/usr/lib/x86_64-linux-gnu/libglfw.so.3.0"
+  "/usr/lib/x86_64-linux-gnu/libglfw.so"
 )
 
 add_executable(test2 "test2.cpp" ${test_SRC})
@@ -89,7 +89,7 @@ target_link_libraries(
     ${GLEW_LIBRARIES}
     ${OpenPose_LIBS} ${GFLAGS_LIBRARY} ${GLOG_LIBRARY}
     jsoncpp
-    "/usr/lib/x86_64-linux-gnu/libglfw.so.3.0"
+    "/usr/lib/x86_64-linux-gnu/libglfw.so"
 )
 
 add_executable(smpl_fit "smpl_fit.cpp" "pf.h" ${test_SRC})
@@ -101,7 +101,7 @@ target_link_libraries(
   ${GLEW_LIBRARIES}
   ${OpenPose_LIBS}
   jsoncpp
-  "/usr/lib/x86_64-linux-gnu/libglfw.so.3.0"
+  "/usr/lib/x86_64-linux-gnu/libglfw.so"
   -lboost_system
 )
 
@@ -114,7 +114,7 @@ target_link_libraries(
     ${GLEW_LIBRARIES}
     ${OpenPose_LIBS} ${GFLAGS_LIBRARY} ${GLOG_LIBRARY}
     jsoncpp
-    "/usr/lib/x86_64-linux-gnu/libglfw.so.3.0"
+    "/usr/lib/x86_64-linux-gnu/libglfw.so"
 )
 
 message(${OpenPose_LIBS})

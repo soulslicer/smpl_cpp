@@ -28,32 +28,7 @@ using namespace std;
 
 #include <op.h>
 
-Eigen::Matrix4f rod(const Eigen::VectorXf& v, const Eigen::VectorXf& t){
-    Eigen::Matrix4f m;
-    cv::Mat src(cv::Size(1,3),CV_32FC1,cv::Scalar(0));
-    src.at<float>(0) = v(0);
-    src.at<float>(1) = v(1);
-    src.at<float>(2) = v(2);
-    cv::Mat dst;
-    cv::Rodrigues(src, dst);
-    m(0,0) = dst.at<float>(0,0);
-    m(0,1) = dst.at<float>(0,1);
-    m(0,2) = dst.at<float>(0,2);
-    m(0,3) = t(0);
-    m(1,0) = dst.at<float>(1,0);
-    m(1,1) = dst.at<float>(1,1);
-    m(1,2) = dst.at<float>(1,2);
-    m(1,3) = t(1);
-    m(2,0) = dst.at<float>(2,0);
-    m(2,1) = dst.at<float>(2,1);
-    m(2,2) = dst.at<float>(2,2);
-    m(2,3) = t(2);
-    m(3,0) = 0;
-    m(3,1) = 0;
-    m(3,2) = 0;
-    m(3,3) = 1;
-    return m;
-}
+#include <stickman.h>
 
 float d2r(float deg){
     return (M_PI/180.)*deg;
@@ -105,97 +80,6 @@ void swing_twist(const Eigen::Quaternionf& q, const Eigen::Vector3f& vt,
     swing = q * twist.conjugate();
 
 }
-
-
-class StickMan{
-public:
-
-    const int BODY = 0;   // 0
-    const int CHIP = 1;
-    const int LLEG = 2;  // 1
-    const int RLEG = 3;   // 2
-    const int LKNEE = 4;  // 4
-    const int RKNEE = 5;  // 5
-    const int LFOOT = 6;  // 7
-    const int RFOOT = 7;  // 8
-    const int FNECK = 8; // 9
-    const int NECK = 9;   // 12
-    const int NOSE = 10;
-    const int HEAD = 11;   // 15
-    const int LSHOULDER2 = 12; // 16
-    const int RSHOULDER2 = 13; // 17
-    const int LELBOW = 14; // 18
-    const int RELBOW = 15; // 19
-    const int LWRIST = 16; // 20
-    const int RWRIST = 17; // 21
-
-    int bodyParts = 18;
-    Eigen::MatrixXf theta = Eigen::MatrixXf::Zero(bodyParts,3);
-    Eigen::MatrixXf beta = Eigen::MatrixXf::Zero(10,1);
-    std::map<int,int> kintree;
-    StickMan(){
-        beta << 0.3,0.05,0.3,0.3,0.2,0.2,0.2,0.2,0.1,0.1;
-        kintree = {{CHIP, BODY},
-                   {LLEG,CHIP},
-                   {RLEG,CHIP},
-                   {LKNEE,LLEG},
-                   {RKNEE,RLEG},
-                   {LFOOT,LKNEE},
-                   {RFOOT,RKNEE},
-                   {FNECK,BODY},
-                   {NECK,FNECK},
-                   {LSHOULDER2,FNECK},
-                   {RSHOULDER2,FNECK},
-                   {LELBOW,LSHOULDER2},
-                   {RELBOW,RSHOULDER2},
-                   {LWRIST,LELBOW},
-                   {RWRIST,RELBOW},
-                   {NOSE,NECK},
-                   {HEAD,NOSE},
-                  };
-    }
-
-    Eigen::MatrixXf forward(){
-        Eigen::MatrixXf mJ = Eigen::MatrixXf::Zero(bodyParts,3);
-        Eigen::MatrixXf mJ2 = Eigen::MatrixXf::Zero(bodyParts,3);
-
-        for(int i=1; i<bodyParts; i++){
-            Eigen::Vector3f p = mJ.row(kintree[i]);
-            if(i==CHIP) mJ.row(i) = p + Eigen::Vector3f(0,-1,0)*beta(0);
-            if(i==LLEG) mJ.row(i) = p + Eigen::Vector3f(1,0,0)*beta(1);
-            if(i==RLEG) mJ.row(i) = p + Eigen::Vector3f(-1,0,0)*beta(1);
-            if(i==LKNEE || i==RKNEE) mJ.row(i) = p + Eigen::Vector3f(0,-1,0)*beta(2);
-            if(i==LFOOT || i==RFOOT) mJ.row(i) = p + Eigen::Vector3f(0,-1,0)*beta(3);
-            if(i==FNECK) mJ.row(i) = p + Eigen::Vector3f(0,1,0)*beta(4);
-            if(i==LSHOULDER2) mJ.row(i) = p + Eigen::Vector3f(1,0,0)*beta(5);
-            if(i==RSHOULDER2) mJ.row(i) = p + Eigen::Vector3f(-1,0,0)*beta(5);
-            if(i==LELBOW) mJ.row(i) = p + Eigen::Vector3f(1,0,0)*beta(6);
-            if(i==RELBOW) mJ.row(i) = p + Eigen::Vector3f(-1,0,0)*beta(6);
-            if(i==LWRIST) mJ.row(i) = p + Eigen::Vector3f(1,0,0)*beta(7);
-            if(i==RWRIST) mJ.row(i) = p + Eigen::Vector3f(-1,0,0)*beta(7);
-            if(i==NECK) mJ.row(i) = p + Eigen::Vector3f(0,1,0)*beta(8);
-            if(i==NOSE) mJ.row(i) = p + Eigen::Vector3f(0,1,0)*beta(9);
-            if(i==HEAD) mJ.row(i) = p + Eigen::Vector3f(0,1,0)*beta(9);
-        }
-
-        // Compute new mJ from mJ
-        mJ2.row(0) = mJ.row(0);
-        std::vector<Eigen::Matrix4f> globalTransforms(bodyParts);
-        Eigen::Matrix4f& rootPose = globalTransforms[0];
-        rootPose = rod(theta.row(0), mJ.row(0));
-
-        // Global Transforms
-        for(int i=1; i<globalTransforms.size(); i++){
-            Eigen::Matrix4f& pose = globalTransforms[i];
-            pose = globalTransforms[kintree[i]] * rod(theta.row(i), mJ.row(i) - mJ.row(kintree[i]));
-            mJ2(i,0) = pose(0,3);
-            mJ2(i,1) = pose(1,3);
-            mJ2(i,2) = pose(2,3);
-        }
-
-        return mJ2;
-    }
-};
 
 int main(int argc, char *argv[])
 {
@@ -254,17 +138,26 @@ int main(int argc, char *argv[])
         trackManager.spin();
         if(trackManager.changeOccured()){
 
-            sm.theta.row(0) = Eigen::Vector3f(0,0,trackManager.getTrackValue("BODY0"));
+            //sm.theta.row(0) = Eigen::Vector3f(0,0,trackManager.getTrackValue("BODY0"));
 
             // 1 - CHIP [-120, -45, -45] [45, 45, 45]
             // 2 - LLEG [-120 -45 -40] [30 45 40]
             // 3 - RLEG [-120 -45 -40] [30 45 40]
             // 4 - LKNEE [0, -20, -20] [130, 20, 20]
-            // 5 - LKNEE [0, -20, -20] [130, 20, 20]
+            // 5 - RKNEE [0, -20, -20] [130, 20, 20]
+            // 6 - LFOOT []
+            // 7 - RFOOT []
+            // 8 - FNECK [-45, -45, -45] [45,45,45]
+            // 9 - NECK [-45, -45, -45] [45,45,45]
+            // 10 - NOSE [-45, -45, -45] [45,45,45]
+            // 11 - HEAD
+            // 12 - LSHOULDER
+            // 13 - RSHOULDER
 
-            int r = 5;
-            sm.theta.row(r) = Eigen::Vector3f(trackManager.getTrackValue("CHIPX"),trackManager.getTrackValue("CHIPY"),trackManager.getTrackValue("CHIPZ"));
-            cout << sm.theta.row(r) * 180/M_PI << endl;
+//            int r = 12;
+//            sm.theta.row(r) = Eigen::Vector3f(trackManager.getTrackValue("CHIPX"),trackManager.getTrackValue("CHIPY"),trackManager.getTrackValue("CHIPZ"));
+//            cout << sm.theta.row(r) * 180/M_PI << endl;
+
 
 //            Eigen::AngleAxisf aa = euler_to_aa(sm.theta(r,0),sm.theta(r,1),sm.theta(r,2));
 //            cout << aa.axis().transpose() << " " << aa.angle() << endl;
@@ -286,7 +179,7 @@ int main(int argc, char *argv[])
 //            sm.theta.row(14) = Eigen::Vector3f(0,0,trackManager.getTrackValue("LELBOW14"));
 //            sm.theta.row(15) = Eigen::Vector3f(0,0,trackManager.getTrackValue("RELBOW15"));
 
-//            sm.beta(0,0) = trackManager.getTrackValue("B0");
+            sm.beta(2,0) = trackManager.getTrackValue("CHIPX");
 //            sm.beta(1,0) = trackManager.getTrackValue("B1");
 //            sm.beta(2,0) = trackManager.getTrackValue("B2");
 

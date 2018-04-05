@@ -61,6 +61,7 @@ file(GLOB test_SRC
     "pf.cpp"
     "op.h"
     "test_np.py"
+    "stickman.h"
     "smplify_public/code/*.py"
     "smplify_public/code/smpl_webuser/*.py"
     "smplify_public/code/smpl_webuser/hello_world/*.py"
@@ -102,6 +103,18 @@ target_link_libraries(
   jsoncpp
   "/usr/lib/x86_64-linux-gnu/libglfw.so.3.0"
   -lboost_system
+)
+
+add_executable(stickman_fit "stickman_fit.cpp" ${test_SRC})
+target_link_libraries(
+    stickman_fit
+    ${OpenCV_LIBRARIES}
+    ${GLUT_LIBRARY}
+    ${OPENGL_LIBRARIES}
+    ${GLEW_LIBRARIES}
+    ${OpenPose_LIBS} ${GFLAGS_LIBRARY} ${GLOG_LIBRARY}
+    jsoncpp
+    "/usr/lib/x86_64-linux-gnu/libglfw.so.3.0"
 )
 
 message(${OpenPose_LIBS})

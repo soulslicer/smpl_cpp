@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
             smpl.updateModel(joints);
             wObject1->loadEigenData(smpl.mVTemp2, smpl.mF);
             if(!joints)
-            wObject1->rebuildVArr(WObject::RENDER_NORMAL);
+            wObject1->rebuildVArr(WObject::RENDER_WIREFRAME);
             end= std::chrono::steady_clock::now();
             std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. <<std::endl;
 
@@ -142,7 +142,7 @@ int main(int argc, char *argv[])
                 smpl.updateModel(joints);
                 wObject1->loadEigenData(smpl.mVTemp2, smpl.mF);
                 if(!joints)
-                wObject1->rebuild(WObject::RENDER_NORMAL);
+                wObject1->rebuild(WObject::RENDER_WIREFRAME);
 
                 if(joints){
                     Eigen::MatrixXf empt;

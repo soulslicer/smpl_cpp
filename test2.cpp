@@ -91,7 +91,6 @@ int main(int argc, char *argv[])
     end= std::chrono::steady_clock::now();
     std::cout << "Time difference Setup = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000. <<std::endl;
     Eigen::MatrixXf mF;
-    exit(-1);
 
     // Trackbar
     DoubleTrackManager trackManager;

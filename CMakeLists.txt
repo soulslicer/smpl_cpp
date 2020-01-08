@@ -26,7 +26,7 @@ find_package(GLUT REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(GLEW REQUIRED)
-find_package(OpenPose REQUIRED)
+#find_package(OpenPose REQUIRED)
 find_package(CUDA REQUIRED)
 find_package(Caffe REQUIRED)
 
@@ -92,29 +92,3 @@ target_link_libraries(
     "/usr/lib/x86_64-linux-gnu/libglfw.so"
 )
 
-add_executable(smpl_fit "smpl_fit.cpp" "pf.h" ${test_SRC})
-target_link_libraries(
-  smpl_fit
-  ${OpenCV_LIBRARIES}
-  ${GLUT_LIBRARY}
-  ${OPENGL_LIBRARIES}
-  ${GLEW_LIBRARIES}
-  ${OpenPose_LIBS}
-  jsoncpp
-  "/usr/lib/x86_64-linux-gnu/libglfw.so"
-  -lboost_system
-)
-
-add_executable(stickman_fit "stickman_fit.cpp" ${test_SRC})
-target_link_libraries(
-    stickman_fit
-    ${OpenCV_LIBRARIES}
-    ${GLUT_LIBRARY}
-    ${OPENGL_LIBRARIES}
-    ${GLEW_LIBRARIES}
-    ${OpenPose_LIBS} ${GFLAGS_LIBRARY} ${GLOG_LIBRARY}
-    jsoncpp
-    "/usr/lib/x86_64-linux-gnu/libglfw.so"
-)
-
-message(${OpenPose_LIBS})
